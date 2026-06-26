@@ -1,0 +1,66 @@
+{
+  "ultima_actualizacion": "2026-06-26 20:10",
+  "total": 5,
+  "convocatorias": [
+    {
+      "id": "F001",
+      "titulo": "Adquisicion de equipos de computo",
+      "entidad": "Municipalidad de Lima",
+      "tipo": "Adjudicacion Simplificada",
+      "monto": 85000,
+      "region": "Lima",
+      "fecha_vencimiento": "2026-06-28",
+      "url_seace": "https://seace.gob.pe",
+      "dias": 2,
+      "urg": "urgente"
+    },
+    {
+      "id": "F002",
+      "titulo": "Servicio de limpieza de locales",
+      "entidad": "Ministerio de Educacion",
+      "tipo": "Concurso Publico",
+      "monto": 42000,
+      "region": "Lima",
+      "fecha_vencimiento": "2026-07-11",
+      "url_seace": "https://seace.gob.pe",
+      "dias": 15,
+      "urg": "normal"
+    },
+    {
+      "id": "F003",
+      "titulo": "Suministro de materiales de construccion",
+      "entidad": "Gobierno Regional Cusco",
+      "tipo": "Licitacion Publica",
+      "monto": 320000,
+      "region": "Cusco",
+      "fecha_vencimiento": "2026-07-03",
+      "url_seace": "https://seace.gob.pe",
+      "dias": 7,
+      "urg": "proximo"
+    },
+    {
+      "id": "F004",
+      "titulo": "Consultoria en sistemas de informacion",
+      "entidad": "SUNAT",
+      "tipo": "Concurso Publico",
+      "monto": 95000,
+      "region": "Lima",
+      "fecha_vencimiento": "2026-07-18",
+      "url_seace": "https://seace.gob.pe",
+      "dias": 22,
+      "urg": "normal"
+    },
+    {
+      "id": "F005",
+      "titulo": "Adquisicion de mobiliario de oficina",
+      "entidad": "Ministerio de Salud",
+      "tipo": "Adjudicacion Simplificada",
+      "monto": 28000,
+      "region": "Lima",
+      "fecha_vencimiento": "2026-06-27",
+      "url_seace": "https://seace.gob.pe",
+      "dias": 1,
+      "urg": "urgente"
+    }
+  ]
+}
