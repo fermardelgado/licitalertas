@@ -1,15 +1,16 @@
-name: Scraper Diario
+name: LicitAlertas — Scraper Diario
 
 on:
   schedule:
-    - cron: '0 13 * * *'
-  workflow_dispatch:
+    - cron: '0 13 * * 1-5'   # 8:00 AM Lima (UTC-5), lunes a viernes
+  workflow_dispatch:           # permite correrlo manualmente desde GitHub
 
 jobs:
   scraper:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Descargar repo
+      - name: Checkout repositorio
         uses: actions/checkout@v4
 
       - name: Configurar Python
@@ -17,20 +18,35 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Instalar dependencias
-        run: pip install requests
+      - name: Instalar Chrome y ChromeDriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            google-chrome-stable \
+            chromium-chromedriver \
+            xvfb
+          which google-chrome || which chromium-browser
+          chromedriver --version
+
+      - name: Instalar dependencias Python
+        run: |
+          pip install \
+            selenium \
+            openpyxl \
+            requests \
+            webdriver-manager
 
       - name: Ejecutar scraper
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          EMAIL_USER: ${{ secrets.EMAIL_USER }}
-          EMAIL_DESTINO: ${{ secrets.EMAIL_DESTINO }}
+          EMAIL_USER:       ${{ secrets.EMAIL_USER }}
+          EMAIL_DESTINO:    ${{ secrets.EMAIL_DESTINO }}
         run: python scraper.py
 
-      - name: Guardar datos.json
+      - name: Guardar datos.json en el repo
         run: |
-          git config user.name "LicitAlertas Bot"
-          git config user.email "bot@licitalertas.com"
+          git config user.name  "LicitAlertas Bot"
+          git config user.email "bot@licitalertas.pe"
           git add datos.json
           git diff --staged --quiet || git commit -m "Datos SEACE $(date +'%Y-%m-%d %H:%M')"
           git push
