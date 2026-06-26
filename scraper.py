@@ -36,7 +36,10 @@ def configurar_driver():
         "download.directory_upgrade": True,
         "safebrowsing.enabled": True,
     })
-    driver = webdriver.Chrome(options=opciones)
+    from webdriver_manager.chrome import ChromeDriverManager
+    from selenium.webdriver.chrome.service import Service
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=opciones)
     return driver
 
 
