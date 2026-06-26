@@ -49,4 +49,5 @@ jobs:
           git config user.email "bot@licitalertas.pe"
           git add datos.json
           git diff --staged --quiet || git commit -m "Datos SEACE $(date +'%Y-%m-%d %H:%M')"
+          git pull --rebase origin main
           git push
