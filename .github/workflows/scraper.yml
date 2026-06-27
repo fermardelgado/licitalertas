@@ -14,10 +14,14 @@ jobs:
         with:
           python-version: '3.11'
       - name: Instalar dependencias Python
-        run: pip install requests
+        run: pip install requests urllib3
       - name: Ejecutar scraper
         env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          EMAIL_USER:       ${{ secrets.EMAIL_USER }}
-          EMAIL_DESTINO:    ${{ secrets.EMAIL_DESTINO }}
+          SENDGRID_API_KEY:  ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_USER:        ${{ secrets.EMAIL_USER }}
+          EMAIL_DESTINO:     ${{ secrets.EMAIL_DESTINO }}
+          BRIGHTDATA_HOST:   ${{ secrets.BRIGHTDATA_HOST }}
+          BRIGHTDATA_PORT:   ${{ secrets.BRIGHTDATA_PORT }}
+          BRIGHTDATA_USER:   ${{ secrets.BRIGHTDATA_USER }}
+          BRIGHTDATA_PASS:   ${{ secrets.BRIGHTDATA_PASS }}
         run: python scraper.py
