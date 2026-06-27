@@ -256,7 +256,7 @@ def main():
         c["dias"] = dias_restantes(c.get("fecha_vencimiento", ""))
         c["urg"]  = urgencia(c["dias"])
 
-    convocatorias = [c for c in convocatorias if c["urg"] != "vencido"]
+    # convocatorias = [c for c in convocatorias if c["urg"] != "vencido"]
 
     output = {
         "ultima_actualizacion": datetime.now().strftime("%Y-%m-%d %H:%M"),
