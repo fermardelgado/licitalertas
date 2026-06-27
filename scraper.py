@@ -60,7 +60,7 @@ def obtener_convocatorias():
                 break
 
             data = resp.json()
-            releases = data.get("results", [])
+            releases = data.get("releases", [])
             print(f"  Registros: {len(releases)}")
 
             if not releases:
