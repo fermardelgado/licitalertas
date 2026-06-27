@@ -1,5 +1,4 @@
 import os
-import time
 import json
 import requests
 from datetime import datetime, timedelta
@@ -12,8 +11,6 @@ BRIGHTDATA_PORT   = os.environ.get("BRIGHTDATA_PORT", "")
 BRIGHTDATA_USER   = os.environ.get("BRIGHTDATA_USER", "")
 BRIGHTDATA_PASS   = os.environ.get("BRIGHTDATA_PASS", "")
 
-SEACE_URL = "https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/buscadorPublico.xhtml"
-
 
 # ─── PROXY ───────────────────────────────────────────────────────────────────
 
@@ -21,11 +18,10 @@ def get_proxies():
     if not BRIGHTDATA_HOST:
         return None
     proxy_url = f"http://{BRIGHTDATA_USER}:{BRIGHTDATA_PASS}@{BRIGHTDATA_HOST}:{BRIGHTDATA_PORT}"
-print(f"Proxy URL configurado: {BRIGHTDATA_HOST}:{BRIGHTDATA_PORT}")
     return {"http": proxy_url, "https": proxy_url}
 
 
-# ─── OBTENER DATOS DESDE SEACE ───────────────────────────────────────────────
+# ─── OBTENER DATOS DESDE API OCDS ────────────────────────────────────────────
 
 def obtener_convocatorias():
     print("Consultando API OCDS de OECE via proxy...")
@@ -33,7 +29,7 @@ def obtener_convocatorias():
     if proxies:
         print(f"Proxy configurado: {BRIGHTDATA_HOST}:{BRIGHTDATA_PORT}")
     else:
-        print("Sin proxy — intentando conexión directa")
+        print("Sin proxy — intentando conexion directa")
 
     convocatorias = []
     hoy = datetime.now()
@@ -54,7 +50,7 @@ def obtener_convocatorias():
     while pagina <= max_paginas:
         params["page"] = pagina
         try:
-            print(f"  Página {pagina}...")
+            print(f"  Pagina {pagina}...")
             resp = requests.get(
                 url,
                 params=params,
@@ -86,7 +82,7 @@ def obtener_convocatorias():
                 break
 
         except Exception as e:
-            print(f"  Error en página {pagina}: {e}")
+            print(f"  Error en pagina {pagina}: {e}")
             break
 
     print(f"Total convocatorias: {len(convocatorias)}")
@@ -127,7 +123,7 @@ def extraer_de_release(release):
 
         return {
             "id":                release.get("ocid", "")[-20:],
-            "titulo":            tender.get("title", "Sin título") or "Sin título",
+            "titulo":            tender.get("title", "Sin titulo") or "Sin titulo",
             "entidad":           entidad,
             "tipo":              tender.get("procurementMethodDetails", ""),
             "monto":             monto,
@@ -182,7 +178,7 @@ def generar_html(convocatorias, fecha, fuente):
 
     def fila(c, color):
         dias = c["dias"]
-        label = "HOY" if dias == 0 else f"{dias} días"
+        label = "HOY" if dias == 0 else f"{dias} dias"
         return (
             f'<tr>'
             f'<td style="padding:8px;font-size:13px">{str(c["titulo"])[:70]}</td>'
@@ -202,28 +198,28 @@ def generar_html(convocatorias, fecha, fuente):
             f'<h3 style="color:{color};margin:20px 0 8px">{titulo} ({len(items)})</h3>'
             f'<table style="width:100%;border-collapse:collapse;background:white;border-radius:8px;overflow:hidden">'
             f'<thead><tr style="background:#f7fafc">'
-            f'<th style="padding:8px;text-align:left;font-size:11px;color:#999">TÍTULO</th>'
+            f'<th style="padding:8px;text-align:left;font-size:11px;color:#999">TITULO</th>'
             f'<th style="padding:8px;text-align:left;font-size:11px;color:#999">ENTIDAD</th>'
             f'<th style="padding:8px;text-align:left;font-size:11px;color:#999">MONTO</th>'
-            f'<th style="padding:8px;text-align:left;font-size:11px;color:#999">REGIÓN</th>'
+            f'<th style="padding:8px;text-align:left;font-size:11px;color:#999">REGION</th>'
             f'<th style="padding:8px;text-align:center;font-size:11px;color:#999">VENCE</th>'
             f'</tr></thead><tbody>{filas}</tbody></table>'
         )
 
-    fuente_badge = f'<span style="background:#38a169;color:white;padding:2px 8px;border-radius:10px;font-size:11px">✓ SEACE REAL</span>' \
-                   if fuente != "Respaldo" else \
-                   f'<span style="background:#e53e3e;color:white;padding:2px 8px;border-radius:10px;font-size:11px">⚠ RESPALDO</span>'
+    badge = "SEACE REAL" if fuente != "Respaldo" else "RESPALDO"
+    color_badge = "#38a169" if fuente != "Respaldo" else "#e53e3e"
 
     return f'''<html><body style="font-family:Arial,sans-serif;background:#f0f4f8;padding:20px">
     <div style="max-width:860px;margin:0 auto">
     <div style="background:linear-gradient(135deg,#1a365d,#2b6cb0);color:white;padding:20px 30px;border-radius:12px 12px 0 0">
     <h1 style="margin:0;font-size:20px">LicitAlertas — Reporte Diario</h1>
-    <p style="margin:4px 0 0;opacity:0.85">{fecha} | {len(convocatorias)} convocatorias | {len(urgentes)} urgentes | {fuente_badge}</p>
+    <p style="margin:4px 0 0;opacity:0.85">{fecha} | {len(convocatorias)} convocatorias | {len(urgentes)} urgentes |
+    <span style="background:{color_badge};padding:2px 8px;border-radius:10px;font-size:11px">{badge}</span></p>
     </div>
     <div style="background:white;padding:20px 30px;border-radius:0 0 12px 12px">
-    {tabla("🔴 URGENTES — Vencen en 3 días o menos", urgentes, "#e53e3e")}
-    {tabla("🟡 PRÓXIMAS — Vencen en 10 días o menos", proximas, "#d69e2e")}
-    {tabla("🟢 NORMALES", normales[:20], "#38a169")}
+    {tabla("URGENTES — Vencen en 3 dias o menos", urgentes, "#e53e3e")}
+    {tabla("PROXIMAS — Vencen en 10 dias o menos", proximas, "#d69e2e")}
+    {tabla("NORMALES", normales[:20], "#38a169")}
     </div></div></body></html>'''
 
 
@@ -246,9 +242,9 @@ def enviar_email(convocatorias, fecha, fuente):
         }
     )
     if resp.status_code == 202:
-        print(f"✅ Email enviado a {EMAIL_DESTINO}")
+        print(f"Email enviado a {EMAIL_DESTINO}")
     else:
-        print(f"❌ Error email: {resp.status_code} {resp.text}")
+        print(f"Error email: {resp.status_code} {resp.text}")
 
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────
@@ -261,7 +257,7 @@ def main():
     fuente = "API OECE"
 
     if not convocatorias:
-        print("⚠️  Usando datos de respaldo.")
+        print("Usando datos de respaldo.")
         convocatorias = datos_respaldo()
         fuente = "Respaldo"
 
