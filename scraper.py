@@ -50,47 +50,111 @@ def descargar_excel_seace():
 
     try:
         # 1. Abrir portal
+        print("Paso 1: Abriendo portal SEACE...")
         driver.get(SEACE_URL)
-        time.sleep(3)
+        time.sleep(5)
+        driver.save_screenshot("/tmp/paso1_portal.png")
+        print(f"Título de página: {driver.title}")
+        print(f"URL actual: {driver.current_url}")
 
-        # 2. Hacer clic en pestaña "Buscador de Procedimientos de Selección"
-        pestana = wait.until(EC.element_to_be_clickable(
-            (By.XPATH, "//a[contains(text(),'Buscador de Procedimientos')]")
-        ))
-        pestana.click()
-        time.sleep(2)
+        # Guardar HTML inicial para diagnóstico
+        with open("/tmp/html_inicial.txt", "w", encoding="utf-8") as f:
+            f.write(driver.page_source[:5000])
+        print("HTML inicial guardado (primeros 5000 chars)")
 
-        # 3. Seleccionar año 2026
+        # 2. Buscar pestaña — intentar múltiples estrategias
+        print("Paso 2: Buscando pestaña de procedimientos...")
         try:
-            select_anio = wait.until(EC.presence_of_element_located(
-                (By.XPATH, "//select[contains(@id,'anio') or contains(@id,'Anio')]")
+            pestana = wait.until(EC.element_to_be_clickable(
+                (By.XPATH, "//a[contains(text(),'Buscador de Procedimientos')]")
             ))
-            Select(select_anio).select_by_visible_text("2026")
-            time.sleep(1)
-        except Exception as e:
-            print(f"Advertencia al seleccionar año: {e}")
+            pestana.click()
+            print("Pestaña encontrada por texto 'Buscador de Procedimientos'")
+        except Exception as e1:
+            print(f"Intento 1 falló: {e1}")
+            try:
+                # Buscar cualquier <a> o tab visible
+                tabs = driver.find_elements(By.XPATH, "//a | //li[@role='tab'] | //div[@role='tab']")
+                print(f"Tabs/links encontrados: {len(tabs)}")
+                for i, t in enumerate(tabs[:10]):
+                    print(f"  [{i}] texto='{t.text}' id='{t.get_attribute('id')}'")
+            except Exception as e2:
+                print(f"No se pudieron listar tabs: {e2}")
 
-        # 4. Hacer clic en Buscar
+        time.sleep(3)
+        driver.save_screenshot("/tmp/paso2_pestana.png")
+
+        # 3. Buscar selector de año
+        print("Paso 3: Buscando selector de año...")
+        try:
+            selects = driver.find_elements(By.TAG_NAME, "select")
+            print(f"Selects encontrados: {len(selects)}")
+            for i, s in enumerate(selects):
+                print(f"  [{i}] id='{s.get_attribute('id')}' name='{s.get_attribute('name')}'")
+                opciones = [o.text for o in s.find_elements(By.TAG_NAME, "option")]
+                print(f"       opciones: {opciones[:5]}")
+        except Exception as e:
+            print(f"Error listando selects: {e}")
+
+        try:
+            select_anio = driver.find_element(
+                By.XPATH, "//select[contains(@id,'anio') or contains(@id,'Anio') or contains(@id,'year') or contains(@id,'Year')]"
+            )
+            Select(select_anio).select_by_visible_text("2026")
+            print("Año 2026 seleccionado")
+        except Exception as e:
+            print(f"No se pudo seleccionar año: {e}")
+
+        time.sleep(1)
+
+        # 4. Buscar botón Buscar
+        print("Paso 4: Buscando botón Buscar...")
+        try:
+            botones = driver.find_elements(By.XPATH, "//input[@type='submit'] | //button | //input[@type='button']")
+            print(f"Botones encontrados: {len(botones)}")
+            for i, b in enumerate(botones[:10]):
+                print(f"  [{i}] value='{b.get_attribute('value')}' text='{b.text}' id='{b.get_attribute('id')}'")
+        except Exception as e:
+            print(f"Error listando botones: {e}")
+
         boton_buscar = wait.until(EC.element_to_be_clickable(
-            (By.XPATH, "//input[@value='Buscar'] | //button[contains(text(),'Buscar')]")
+            (By.XPATH, "//input[@value='Buscar'] | //button[contains(text(),'Buscar')] | //input[contains(@value,'Buscar')]")
         ))
         boton_buscar.click()
-        time.sleep(5)
+        print("Clic en Buscar")
+        time.sleep(8)
+        driver.save_screenshot("/tmp/paso4_resultados.png")
 
-        # 5. Hacer clic en Exportar a Excel
+        # Guardar HTML de resultados
+        with open("/tmp/html_resultados.txt", "w", encoding="utf-8") as f:
+            f.write(driver.page_source[:8000])
+        print("HTML de resultados guardado")
+
+        # 5. Buscar botón Excel
+        print("Paso 5: Buscando botón Excel...")
+        try:
+            todos = driver.find_elements(By.XPATH, "//*[contains(@value,'Excel') or contains(text(),'Excel') or contains(@id,'excel') or contains(@id,'Excel')]")
+            print(f"Elementos con 'Excel': {len(todos)}")
+            for i, el in enumerate(todos[:5]):
+                print(f"  [{i}] tag='{el.tag_name}' value='{el.get_attribute('value')}' text='{el.text}' id='{el.get_attribute('id')}'")
+        except Exception as e:
+            print(f"Error buscando Excel: {e}")
+
         boton_excel = wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//input[contains(@value,'Excel')] | //button[contains(text(),'Excel')] | //a[contains(text(),'Excel')]")
         ))
         boton_excel.click()
         print("Clic en Exportar a Excel — esperando descarga...")
 
-        # 6. Esperar que el archivo aparezca en la carpeta
         archivo = esperar_descarga(DOWNLOAD_DIR, timeout=60)
         return archivo
 
     except Exception as e:
-        print(f"Error en Selenium: {e}")
+        print(f"❌ Error en Selenium: {e}")
         driver.save_screenshot("/tmp/error_seace.png")
+        with open("/tmp/html_error.txt", "w", encoding="utf-8") as f:
+            f.write(driver.page_source[:8000])
+        print("Screenshot y HTML de error guardados en /tmp/")
         return None
     finally:
         driver.quit()
