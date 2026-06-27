@@ -21,6 +21,7 @@ def get_proxies():
     if not BRIGHTDATA_HOST:
         return None
     proxy_url = f"http://{BRIGHTDATA_USER}:{BRIGHTDATA_PASS}@{BRIGHTDATA_HOST}:{BRIGHTDATA_PORT}"
+print(f"Proxy URL configurado: {BRIGHTDATA_HOST}:{BRIGHTDATA_PORT}")
     return {"http": proxy_url, "https": proxy_url}
 
 
