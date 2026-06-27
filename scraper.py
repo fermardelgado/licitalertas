@@ -39,9 +39,8 @@ def obtener_convocatorias():
     url = "https://contratacionesabiertas.oece.gob.pe/api/v1/releases"
     params = {
         "page": 1,
-        "page_size": 100,
-        "date_after": desde,
-        "date_before": hasta,
+        "startDate": desde,
+        "endDate": hasta,
     }
 
     pagina = 1
