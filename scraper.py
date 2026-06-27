@@ -1,241 +1,127 @@
 import os
 import time
 import json
-import glob
-import openpyxl
 import requests
 from datetime import datetime, timedelta
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait, Select
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
 
 SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
 EMAIL_USER       = os.environ.get("EMAIL_USER", "")
 EMAIL_DESTINO    = os.environ.get("EMAIL_DESTINO", "")
 
-SEACE_URL = "https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/buscadorPublico.xhtml"
-DOWNLOAD_DIR = "/tmp/seace_descargas"
+API_BASE = "https://contratacionesabiertas.oece.gob.pe/api/v1"
 
 
-# ─── SELENIUM ────────────────────────────────────────────────────────────────
+# ─── OBTENER DATOS DESDE API OCDS ────────────────────────────────────────────
 
-def configurar_driver():
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-    opciones = Options()
-    opciones.add_argument("--headless")
-    opciones.add_argument("--no-sandbox")
-    opciones.add_argument("--disable-dev-shm-usage")
-    opciones.add_argument("--disable-gpu")
-    opciones.add_argument("--window-size=1920,1080")
-    opciones.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
-    opciones.add_experimental_option("prefs", {
-        "download.default_directory": DOWNLOAD_DIR,
-        "download.prompt_for_download": False,
-        "download.directory_upgrade": True,
-        "safebrowsing.enabled": True,
-    })
-    from webdriver_manager.chrome import ChromeDriverManager
-    from selenium.webdriver.chrome.service import Service
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=opciones)
-    return driver
+def obtener_convocatorias_api():
+    print("Consultando API OCDS de OECE...")
+    convocatorias = []
 
+    # Fechas: últimos 30 días hasta hoy
+    hoy = datetime.now()
+    desde = (hoy - timedelta(days=30)).strftime("%Y-%m-%d")
+    hasta = hoy.strftime("%Y-%m-%d")
 
-def descargar_excel_seace():
-    print("Iniciando Selenium...")
-    driver = configurar_driver()
-    wait = WebDriverWait(driver, 30)
+    url = f"{API_BASE}/releases.json"
+    params = {
+        "page": 1,
+        "page_size": 100,
+        "date_after": desde,
+        "date_before": hasta,
+    }
 
-    try:
-        # 1. Abrir portal
-        print("Paso 1: Abriendo portal SEACE...")
-        driver.get(SEACE_URL)
-        time.sleep(5)
-        driver.save_screenshot("/tmp/paso1_portal.png")
-        print(f"Título de página: {driver.title}")
-        print(f"URL actual: {driver.current_url}")
+    pagina = 1
+    max_paginas = 5  # máximo 500 registros por ejecución
 
-        # Guardar HTML inicial para diagnóstico
-        with open("/tmp/html_inicial.txt", "w", encoding="utf-8") as f:
-            f.write(driver.page_source[:5000])
-        print("HTML inicial guardado (primeros 5000 chars)")
-
-        # 2. Buscar pestaña — intentar múltiples estrategias
-        print("Paso 2: Buscando pestaña de procedimientos...")
+    while pagina <= max_paginas:
+        params["page"] = pagina
         try:
-            pestana = wait.until(EC.element_to_be_clickable(
-                (By.XPATH, "//a[contains(text(),'Buscador de Procedimientos')]")
-            ))
-            pestana.click()
-            print("Pestaña encontrada por texto 'Buscador de Procedimientos'")
-        except Exception as e1:
-            print(f"Intento 1 falló: {e1}")
+            print(f"  Página {pagina}...")
+            resp = requests.get(url, params=params, timeout=30)
+            print(f"  Status: {resp.status_code}")
+
+            if resp.status_code != 200:
+                print(f"  Error HTTP: {resp.text[:200]}")
+                break
+
+            data = resp.json()
+            releases = data.get("results", [])
+            print(f"  Registros en esta página: {len(releases)}")
+
+            if not releases:
+                break
+
+            for r in releases:
+                conv = extraer_de_release(r)
+                if conv:
+                    convocatorias.append(conv)
+
+            # Si hay siguiente página
+            if data.get("next"):
+                pagina += 1
+            else:
+                break
+
+        except Exception as e:
+            print(f"  Error en página {pagina}: {e}")
+            break
+
+    print(f"Total convocatorias obtenidas: {len(convocatorias)}")
+    return convocatorias
+
+
+def extraer_de_release(release):
+    try:
+        tender = release.get("tender", {})
+        if not tender:
+            return None
+
+        # Solo procesos activos o en convocatoria
+        status = tender.get("status", "")
+        if status not in ("active", "planning", ""):
+            return None
+
+        # Fecha de cierre
+        fecha_cierre = tender.get("tenderPeriod", {}).get("endDate", "")
+        if fecha_cierre:
+            fecha_cierre = fecha_cierre[:10]  # solo YYYY-MM-DD
+
+        # Monto
+        monto = 0.0
+        valor = tender.get("value", {})
+        if valor:
             try:
-                # Buscar cualquier <a> o tab visible
-                tabs = driver.find_elements(By.XPATH, "//a | //li[@role='tab'] | //div[@role='tab']")
-                print(f"Tabs/links encontrados: {len(tabs)}")
-                for i, t in enumerate(tabs[:10]):
-                    print(f"  [{i}] texto='{t.text}' id='{t.get_attribute('id')}'")
-            except Exception as e2:
-                print(f"No se pudieron listar tabs: {e2}")
+                monto = float(valor.get("amount", 0) or 0)
+            except:
+                monto = 0.0
 
-        time.sleep(3)
-        driver.save_screenshot("/tmp/paso2_pestana.png")
+        # Entidad
+        entidad = ""
+        buyer = release.get("buyer", {})
+        if buyer:
+            entidad = buyer.get("name", "")
 
-        # 3. Buscar selector de año
-        print("Paso 3: Buscando selector de año...")
-        try:
-            selects = driver.find_elements(By.TAG_NAME, "select")
-            print(f"Selects encontrados: {len(selects)}")
-            for i, s in enumerate(selects):
-                print(f"  [{i}] id='{s.get_attribute('id')}' name='{s.get_attribute('name')}'")
-                opciones = [o.text for o in s.find_elements(By.TAG_NAME, "option")]
-                print(f"       opciones: {opciones[:5]}")
-        except Exception as e:
-            print(f"Error listando selects: {e}")
-
-        try:
-            select_anio = driver.find_element(
-                By.XPATH, "//select[contains(@id,'anio') or contains(@id,'Anio') or contains(@id,'year') or contains(@id,'Year')]"
-            )
-            Select(select_anio).select_by_visible_text("2026")
-            print("Año 2026 seleccionado")
-        except Exception as e:
-            print(f"No se pudo seleccionar año: {e}")
-
-        time.sleep(1)
-
-        # 4. Buscar botón Buscar
-        print("Paso 4: Buscando botón Buscar...")
-        try:
-            botones = driver.find_elements(By.XPATH, "//input[@type='submit'] | //button | //input[@type='button']")
-            print(f"Botones encontrados: {len(botones)}")
-            for i, b in enumerate(botones[:10]):
-                print(f"  [{i}] value='{b.get_attribute('value')}' text='{b.text}' id='{b.get_attribute('id')}'")
-        except Exception as e:
-            print(f"Error listando botones: {e}")
-
-        boton_buscar = wait.until(EC.element_to_be_clickable(
-            (By.XPATH, "//input[@value='Buscar'] | //button[contains(text(),'Buscar')] | //input[contains(@value,'Buscar')]")
-        ))
-        boton_buscar.click()
-        print("Clic en Buscar")
-        time.sleep(8)
-        driver.save_screenshot("/tmp/paso4_resultados.png")
-
-        # Guardar HTML de resultados
-        with open("/tmp/html_resultados.txt", "w", encoding="utf-8") as f:
-            f.write(driver.page_source[:8000])
-        print("HTML de resultados guardado")
-
-        # 5. Buscar botón Excel
-        print("Paso 5: Buscando botón Excel...")
-        try:
-            todos = driver.find_elements(By.XPATH, "//*[contains(@value,'Excel') or contains(text(),'Excel') or contains(@id,'excel') or contains(@id,'Excel')]")
-            print(f"Elementos con 'Excel': {len(todos)}")
-            for i, el in enumerate(todos[:5]):
-                print(f"  [{i}] tag='{el.tag_name}' value='{el.get_attribute('value')}' text='{el.text}' id='{el.get_attribute('id')}'")
-        except Exception as e:
-            print(f"Error buscando Excel: {e}")
-
-        boton_excel = wait.until(EC.element_to_be_clickable(
-            (By.XPATH, "//input[contains(@value,'Excel')] | //button[contains(text(),'Excel')] | //a[contains(text(),'Excel')]")
-        ))
-        boton_excel.click()
-        print("Clic en Exportar a Excel — esperando descarga...")
-
-        archivo = esperar_descarga(DOWNLOAD_DIR, timeout=60)
-        return archivo
-
-    except Exception as e:
-        print(f"❌ Error en Selenium: {e}")
-        driver.save_screenshot("/tmp/error_seace.png")
-        with open("/tmp/html_error.txt", "w", encoding="utf-8") as f:
-            f.write(driver.page_source[:8000])
-        print("Screenshot y HTML de error guardados en /tmp/")
-        return None
-    finally:
-        driver.quit()
-
-
-def esperar_descarga(directorio, timeout=60):
-    fin = time.time() + timeout
-    while time.time() < fin:
-        archivos = glob.glob(os.path.join(directorio, "*.xlsx")) + \
-                   glob.glob(os.path.join(directorio, "*.xls"))
-        # Ignorar archivos temporales (.crdownload)
-        archivos = [a for a in archivos if not a.endswith(".crdownload")]
-        if archivos:
-            archivo = max(archivos, key=os.path.getmtime)
-            print(f"Archivo descargado: {archivo}")
-            return archivo
-        time.sleep(2)
-    print("Timeout esperando descarga.")
-    return None
-
-
-# ─── PROCESAR EXCEL ──────────────────────────────────────────────────────────
-
-def procesar_excel(ruta_archivo):
-    print(f"Procesando: {ruta_archivo}")
-    try:
-        wb = openpyxl.load_workbook(ruta_archivo, data_only=True)
-        ws = wb.active
-
-        # Leer encabezados de la primera fila
-        headers = []
-        for cell in ws[1]:
-            headers.append(str(cell.value).strip() if cell.value else "")
-
-        print(f"Columnas encontradas: {headers}")
-
-        convocatorias = []
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            if not any(row):
-                continue
-            fila = dict(zip(headers, row))
-            conv = extraer_campos(fila)
-            if conv:
-                convocatorias.append(conv)
-
-        print(f"Total registros procesados: {len(convocatorias)}")
-        return convocatorias
-
-    except Exception as e:
-        print(f"Error procesando Excel: {e}")
-        return []
-
-
-def extraer_campos(fila):
-    """Mapea las columnas del Excel de SEACE a nuestro formato interno."""
-    try:
-        # SEACE puede cambiar nombres de columnas — intentamos variantes
-        def buscar(fila, *claves):
-            for clave in claves:
-                for k, v in fila.items():
-                    if clave.lower() in k.lower() and v:
-                        return str(v).strip()
-            return ""
-
-        monto_raw = buscar(fila, "valor referencial", "monto", "cuantia")
-        try:
-            monto = float(str(monto_raw).replace(",", "").replace("S/", "").strip())
-        except:
-            monto = 0.0
+        # Región
+        region = "Lima"
+        address = tender.get("procuringEntity", {})
+        if not address:
+            address = buyer
+        addr = address.get("address", {})
+        if addr:
+            region = addr.get("region", addr.get("locality", "Lima")) or "Lima"
 
         return {
-            "id":               buscar(fila, "numero", "codigo", "nro"),
-            "titulo":           buscar(fila, "descripcion", "objeto", "denominacion") or "Sin título",
-            "entidad":          buscar(fila, "entidad", "nombre entidad"),
-            "tipo":             buscar(fila, "tipo", "procedimiento", "nomenclatura"),
-            "monto":            monto,
-            "region":           buscar(fila, "departamento", "region", "ubigeo") or "Lima",
-            "fecha_vencimiento": buscar(fila, "vencimiento", "fecha fin", "fecha limite"),
-            "url_seace":        "https://seace.gob.pe",
+            "id":                release.get("ocid", "")[-20:],
+            "titulo":            tender.get("title", "Sin título") or "Sin título",
+            "entidad":           entidad,
+            "tipo":              tender.get("procurementMethodDetails", tender.get("procurementMethod", "")),
+            "monto":             monto,
+            "region":            region,
+            "fecha_vencimiento": fecha_cierre,
+            "url_seace":         f"https://contratacionesabiertas.oece.gob.pe/proceso/{release.get('ocid','')}",
         }
-    except:
+    except Exception as e:
+        print(f"  Error extrayendo release: {e}")
         return None
 
 
@@ -318,17 +204,17 @@ def generar_html(convocatorias, fecha):
     <div style="background:white;padding:20px 30px;border-radius:0 0 12px 12px">
     {tabla("🔴 URGENTES — Vencen en 3 días o menos", urgentes, "#e53e3e")}
     {tabla("🟡 PRÓXIMAS — Vencen en 10 días o menos", proximas, "#d69e2e")}
-    {tabla("🟢 NORMALES", normales[:10], "#38a169")}
+    {tabla("🟢 NORMALES", normales[:20], "#38a169")}
     </div></div></body></html>'''
 
 
-def enviar_email(convocatorias, fecha):
+def enviar_email(convocatorias, fecha, fuente):
     if not SENDGRID_API_KEY or not EMAIL_USER or not EMAIL_DESTINO:
         print("Credenciales SendGrid no configuradas.")
         return
     urgentes = len([c for c in convocatorias if c["urg"] == "urgente"])
-    asunto = f"LicitAlertas {fecha} — {urgentes} URGENTES | {len(convocatorias)} convocatorias" if urgentes > 0 \
-             else f"LicitAlertas {fecha} — {len(convocatorias)} convocatorias"
+    asunto = f"LicitAlertas {fecha} — {urgentes} URGENTES | {len(convocatorias)} convocatorias [{fuente}]" if urgentes > 0 \
+             else f"LicitAlertas {fecha} — {len(convocatorias)} convocatorias [{fuente}]"
     html = generar_html(convocatorias, fecha)
     resp = requests.post(
         "https://api.sendgrid.com/v3/mail/send",
@@ -352,33 +238,37 @@ def main():
     fecha = datetime.now().strftime("%d/%m/%Y")
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Iniciando LicitAlertas...")
 
-    # 1. Intentar descarga real desde SEACE
-    archivo_excel = descargar_excel_seace()
-    convocatorias = procesar_excel(archivo_excel) if archivo_excel else []
+    # 1. Obtener datos reales desde API OCDS
+    convocatorias = obtener_convocatorias_api()
+    fuente = "API OECE"
 
     # 2. Si falla, usar datos de respaldo
     if not convocatorias:
-        print("⚠️  Usando datos de respaldo (SEACE no disponible).")
+        print("⚠️  Usando datos de respaldo.")
         convocatorias = datos_respaldo()
+        fuente = "Respaldo"
 
     # 3. Calcular urgencia
     for c in convocatorias:
         c["dias"] = dias_restantes(c.get("fecha_vencimiento", ""))
         c["urg"]  = urgencia(c["dias"])
 
+    # Filtrar vencidos
+    convocatorias = [c for c in convocatorias if c["urg"] != "vencido"]
+
     # 4. Guardar datos.json
     output = {
         "ultima_actualizacion": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "fuente": "SEACE Excel" if archivo_excel else "Respaldo",
+        "fuente": fuente,
         "total": len(convocatorias),
         "convocatorias": convocatorias,
     }
     with open("datos.json", "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
-    print(f"datos.json guardado: {len(convocatorias)} convocatorias")
+    print(f"datos.json guardado: {len(convocatorias)} convocatorias — fuente: {fuente}")
 
     # 5. Enviar email
-    enviar_email(convocatorias, fecha)
+    enviar_email(convocatorias, fecha, fuente)
     print("Proceso completado.")
 
 
