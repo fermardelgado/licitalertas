@@ -4,25 +4,42 @@ import json
 import requests
 from datetime import datetime, timedelta
 
-SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
-EMAIL_USER       = os.environ.get("EMAIL_USER", "")
-EMAIL_DESTINO    = os.environ.get("EMAIL_DESTINO", "")
+SENDGRID_API_KEY  = os.environ.get("SENDGRID_API_KEY", "")
+EMAIL_USER        = os.environ.get("EMAIL_USER", "")
+EMAIL_DESTINO     = os.environ.get("EMAIL_DESTINO", "")
+BRIGHTDATA_HOST   = os.environ.get("BRIGHTDATA_HOST", "")
+BRIGHTDATA_PORT   = os.environ.get("BRIGHTDATA_PORT", "")
+BRIGHTDATA_USER   = os.environ.get("BRIGHTDATA_USER", "")
+BRIGHTDATA_PASS   = os.environ.get("BRIGHTDATA_PASS", "")
 
-API_BASE = "https://contratacionesabiertas.oece.gob.pe/api/v1"
+SEACE_URL = "https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/buscadorPublico.xhtml"
 
 
-# ─── OBTENER DATOS DESDE API OCDS ────────────────────────────────────────────
+# ─── PROXY ───────────────────────────────────────────────────────────────────
 
-def obtener_convocatorias_api():
-    print("Consultando API OCDS de OECE...")
+def get_proxies():
+    if not BRIGHTDATA_HOST:
+        return None
+    proxy_url = f"http://{BRIGHTDATA_USER}:{BRIGHTDATA_PASS}@{BRIGHTDATA_HOST}:{BRIGHTDATA_PORT}"
+    return {"http": proxy_url, "https": proxy_url}
+
+
+# ─── OBTENER DATOS DESDE SEACE ───────────────────────────────────────────────
+
+def obtener_convocatorias():
+    print("Consultando API OCDS de OECE via proxy...")
+    proxies = get_proxies()
+    if proxies:
+        print(f"Proxy configurado: {BRIGHTDATA_HOST}:{BRIGHTDATA_PORT}")
+    else:
+        print("Sin proxy — intentando conexión directa")
+
     convocatorias = []
-
-    # Fechas: últimos 30 días hasta hoy
     hoy = datetime.now()
     desde = (hoy - timedelta(days=30)).strftime("%Y-%m-%d")
     hasta = hoy.strftime("%Y-%m-%d")
 
-    url = f"{API_BASE}/releases.json"
+    url = "https://contratacionesabiertas.oece.gob.pe/api/v1/releases.json"
     params = {
         "page": 1,
         "page_size": 100,
@@ -31,13 +48,19 @@ def obtener_convocatorias_api():
     }
 
     pagina = 1
-    max_paginas = 5  # máximo 500 registros por ejecución
+    max_paginas = 5
 
     while pagina <= max_paginas:
         params["page"] = pagina
         try:
             print(f"  Página {pagina}...")
-            resp = requests.get(url, params=params, timeout=30)
+            resp = requests.get(
+                url,
+                params=params,
+                proxies=proxies,
+                timeout=30,
+                verify=False
+            )
             print(f"  Status: {resp.status_code}")
 
             if resp.status_code != 200:
@@ -46,7 +69,7 @@ def obtener_convocatorias_api():
 
             data = resp.json()
             releases = data.get("results", [])
-            print(f"  Registros en esta página: {len(releases)}")
+            print(f"  Registros: {len(releases)}")
 
             if not releases:
                 break
@@ -56,7 +79,6 @@ def obtener_convocatorias_api():
                 if conv:
                     convocatorias.append(conv)
 
-            # Si hay siguiente página
             if data.get("next"):
                 pagina += 1
             else:
@@ -66,7 +88,7 @@ def obtener_convocatorias_api():
             print(f"  Error en página {pagina}: {e}")
             break
 
-    print(f"Total convocatorias obtenidas: {len(convocatorias)}")
+    print(f"Total convocatorias: {len(convocatorias)}")
     return convocatorias
 
 
@@ -76,17 +98,14 @@ def extraer_de_release(release):
         if not tender:
             return None
 
-        # Solo procesos activos o en convocatoria
         status = tender.get("status", "")
         if status not in ("active", "planning", ""):
             return None
 
-        # Fecha de cierre
         fecha_cierre = tender.get("tenderPeriod", {}).get("endDate", "")
         if fecha_cierre:
-            fecha_cierre = fecha_cierre[:10]  # solo YYYY-MM-DD
+            fecha_cierre = fecha_cierre[:10]
 
-        # Monto
         monto = 0.0
         valor = tender.get("value", {})
         if valor:
@@ -95,18 +114,13 @@ def extraer_de_release(release):
             except:
                 monto = 0.0
 
-        # Entidad
         entidad = ""
         buyer = release.get("buyer", {})
         if buyer:
             entidad = buyer.get("name", "")
 
-        # Región
         region = "Lima"
-        address = tender.get("procuringEntity", {})
-        if not address:
-            address = buyer
-        addr = address.get("address", {})
+        addr = buyer.get("address", {})
         if addr:
             region = addr.get("region", addr.get("locality", "Lima")) or "Lima"
 
@@ -114,7 +128,7 @@ def extraer_de_release(release):
             "id":                release.get("ocid", "")[-20:],
             "titulo":            tender.get("title", "Sin título") or "Sin título",
             "entidad":           entidad,
-            "tipo":              tender.get("procurementMethodDetails", tender.get("procurementMethod", "")),
+            "tipo":              tender.get("procurementMethodDetails", ""),
             "monto":             monto,
             "region":            region,
             "fecha_vencimiento": fecha_cierre,
@@ -160,7 +174,7 @@ def urgencia(dias):
     return "normal"
 
 
-def generar_html(convocatorias, fecha):
+def generar_html(convocatorias, fecha, fuente):
     urgentes = [c for c in convocatorias if c["urg"] == "urgente"]
     proximas  = [c for c in convocatorias if c["urg"] == "proximo"]
     normales  = [c for c in convocatorias if c["urg"] == "normal"]
@@ -195,11 +209,15 @@ def generar_html(convocatorias, fecha):
             f'</tr></thead><tbody>{filas}</tbody></table>'
         )
 
+    fuente_badge = f'<span style="background:#38a169;color:white;padding:2px 8px;border-radius:10px;font-size:11px">✓ SEACE REAL</span>' \
+                   if fuente != "Respaldo" else \
+                   f'<span style="background:#e53e3e;color:white;padding:2px 8px;border-radius:10px;font-size:11px">⚠ RESPALDO</span>'
+
     return f'''<html><body style="font-family:Arial,sans-serif;background:#f0f4f8;padding:20px">
     <div style="max-width:860px;margin:0 auto">
     <div style="background:linear-gradient(135deg,#1a365d,#2b6cb0);color:white;padding:20px 30px;border-radius:12px 12px 0 0">
     <h1 style="margin:0;font-size:20px">LicitAlertas — Reporte Diario</h1>
-    <p style="margin:4px 0 0;opacity:0.85">{fecha} | {len(convocatorias)} convocatorias | {len(urgentes)} urgentes</p>
+    <p style="margin:4px 0 0;opacity:0.85">{fecha} | {len(convocatorias)} convocatorias | {len(urgentes)} urgentes | {fuente_badge}</p>
     </div>
     <div style="background:white;padding:20px 30px;border-radius:0 0 12px 12px">
     {tabla("🔴 URGENTES — Vencen en 3 días o menos", urgentes, "#e53e3e")}
@@ -215,7 +233,7 @@ def enviar_email(convocatorias, fecha, fuente):
     urgentes = len([c for c in convocatorias if c["urg"] == "urgente"])
     asunto = f"LicitAlertas {fecha} — {urgentes} URGENTES | {len(convocatorias)} convocatorias [{fuente}]" if urgentes > 0 \
              else f"LicitAlertas {fecha} — {len(convocatorias)} convocatorias [{fuente}]"
-    html = generar_html(convocatorias, fecha)
+    html = generar_html(convocatorias, fecha, fuente)
     resp = requests.post(
         "https://api.sendgrid.com/v3/mail/send",
         headers={"Authorization": f"Bearer {SENDGRID_API_KEY}", "Content-Type": "application/json"},
@@ -238,25 +256,20 @@ def main():
     fecha = datetime.now().strftime("%d/%m/%Y")
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Iniciando LicitAlertas...")
 
-    # 1. Obtener datos reales desde API OCDS
-    convocatorias = obtener_convocatorias_api()
+    convocatorias = obtener_convocatorias()
     fuente = "API OECE"
 
-    # 2. Si falla, usar datos de respaldo
     if not convocatorias:
         print("⚠️  Usando datos de respaldo.")
         convocatorias = datos_respaldo()
         fuente = "Respaldo"
 
-    # 3. Calcular urgencia
     for c in convocatorias:
         c["dias"] = dias_restantes(c.get("fecha_vencimiento", ""))
         c["urg"]  = urgencia(c["dias"])
 
-    # Filtrar vencidos
     convocatorias = [c for c in convocatorias if c["urg"] != "vencido"]
 
-    # 4. Guardar datos.json
     output = {
         "ultima_actualizacion": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "fuente": fuente,
@@ -267,7 +280,6 @@ def main():
         json.dump(output, f, ensure_ascii=False, indent=2)
     print(f"datos.json guardado: {len(convocatorias)} convocatorias — fuente: {fuente}")
 
-    # 5. Enviar email
     enviar_email(convocatorias, fecha, fuente)
     print("Proceso completado.")
 
