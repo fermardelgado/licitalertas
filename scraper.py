@@ -32,15 +32,11 @@ def obtener_convocatorias():
         print("Sin proxy — intentando conexion directa")
 
     convocatorias = []
-    hoy = datetime.now()
-    desde = (hoy - timedelta(days=30)).strftime("%Y-%m-%d")
-    hasta = hoy.strftime("%Y-%m-%d")
 
     url = "https://contratacionesabiertas.oece.gob.pe/api/v1/releases"
     params = {
         "page": 1,
-        "startDate": desde,
-        "endDate": hasta,
+        "order": "desc",
     }
 
     pagina = 1
@@ -92,10 +88,6 @@ def extraer_de_release(release):
     try:
         tender = release.get("tender", {})
         if not tender:
-            return None
-
-        status = tender.get("status", "")
-        if status not in ("active", "planning", ""):
             return None
 
         fecha_cierre = tender.get("tenderPeriod", {}).get("endDate", "")
