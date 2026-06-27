@@ -13,39 +13,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Instalar Chrome y ChromeDriver
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            google-chrome-stable \
-            chromium-chromedriver \
-            xvfb
-          which google-chrome || which chromium-browser
-          chromedriver --version
       - name: Instalar dependencias Python
-        run: |
-          pip install \
-            selenium \
-            openpyxl \
-            requests \
-            webdriver-manager
+        run: pip install requests
       - name: Ejecutar scraper
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           EMAIL_USER:       ${{ secrets.EMAIL_USER }}
           EMAIL_DESTINO:    ${{ secrets.EMAIL_DESTINO }}
         run: python scraper.py
-      - name: Subir screenshots de diagnóstico
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: diagnostico-seace
-          path: /tmp/*.png
-          retention-days: 3
-      - name: Subir HTML de diagnóstico
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: html-diagnostico
-          path: /tmp/*.txt
-          retention-days: 3
