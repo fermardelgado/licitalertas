@@ -36,7 +36,7 @@ def obtener_convocatorias():
     desde = (hoy - timedelta(days=30)).strftime("%Y-%m-%d")
     hasta = hoy.strftime("%Y-%m-%d")
 
-    url = "https://contratacionesabiertas.oece.gob.pe/api/v1/releases.json"
+    url = "https://contratacionesabiertas.oece.gob.pe/api/v1/release-package-search/"
     params = {
         "page": 1,
         "page_size": 100,
