@@ -41,7 +41,7 @@ def obtener_convocatorias():
     }
     
     pagina = 1
-    max_paginas = 5
+    max_paginas = 20
 
     while pagina <= max_paginas:
         params["page"] = pagina
@@ -258,7 +258,7 @@ def main():
         c["urg"]  = urgencia(c["dias"])
         print(f"DEBUG: {c['titulo'][:40]} | vence: {c['fecha_vencimiento']} | dias: {c['dias']} | urg: {c['urg']}")
 
-    # convocatorias = [c for c in convocatorias if c["urg"] != "vencido"]
+    convocatorias = [c for c in convocatorias if c["urg"] != "vencido"]
 
     output = {
         "ultima_actualizacion": datetime.now().strftime("%Y-%m-%d %H:%M"),
