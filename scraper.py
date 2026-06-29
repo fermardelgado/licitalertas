@@ -255,6 +255,7 @@ def main():
     for c in convocatorias:
         c["dias"] = dias_restantes(c.get("fecha_vencimiento", ""))
         c["urg"]  = urgencia(c["dias"])
+        print(f"DEBUG: {c['titulo'][:40]} | vence: {c['fecha_vencimiento']} | dias: {c['dias']} | urg: {c['urg']}")
 
     # convocatorias = [c for c in convocatorias if c["urg"] != "vencido"]
 
