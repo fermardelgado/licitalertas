@@ -1,134 +1,95 @@
-import os
-import json
 import requests
+import json
+import os
+import io
 from datetime import datetime, timedelta
 
-SENDGRID_API_KEY  = os.environ.get("SENDGRID_API_KEY", "")
-EMAIL_USER        = os.environ.get("EMAIL_USER", "")
-EMAIL_DESTINO     = os.environ.get("EMAIL_DESTINO", "")
-BRIGHTDATA_HOST   = os.environ.get("BRIGHTDATA_HOST", "")
-BRIGHTDATA_PORT   = os.environ.get("BRIGHTDATA_PORT", "")
-BRIGHTDATA_USER   = os.environ.get("BRIGHTDATA_USER", "")
-BRIGHTDATA_PASS   = os.environ.get("BRIGHTDATA_PASS", "")
+# Configuracion
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
+EMAIL_USER       = os.environ.get("EMAIL_USER", "")
+EMAIL_DESTINO    = os.environ.get("EMAIL_DESTINO", "")
+GITHUB_TOKEN     = os.environ.get("GITHUB_TOKEN", "")
 
+GITHUB_REPO = "fermardelgado/licitalertas"
+EXCEL_PATH  = "seace_data.xls"
 
-# ─── PROXY ───────────────────────────────────────────────────────────────────
+def log(msg):
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] {msg}")
 
-def get_proxies():
-    if not BRIGHTDATA_HOST:
-        return None
-    proxy_url = f"http://{BRIGHTDATA_USER}:{BRIGHTDATA_PASS}@{BRIGHTDATA_HOST}:{BRIGHTDATA_PORT}"
-    return {"http": proxy_url, "https": proxy_url}
-
-
-# ─── OBTENER DATOS DESDE API OCDS ────────────────────────────────────────────
-
-def obtener_convocatorias():
-    print("Consultando API OCDS de OECE via proxy...")
-    proxies = get_proxies()
-    if proxies:
-        print(f"Proxy configurado: {BRIGHTDATA_HOST}:{BRIGHTDATA_PORT}")
+def descargar_excel_github():
+    log("Descargando Excel desde GitHub...")
+    headers = {"Accept": "application/vnd.github.v3.raw"}
+    if GITHUB_TOKEN:
+        headers["Authorization"] = f"token {GITHUB_TOKEN}"
+    url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{EXCEL_PATH}"
+    resp = requests.get(url, headers=headers, timeout=30)
+    if resp.status_code == 200:
+        log(f"Excel descargado: {len(resp.content)} bytes")
+        return resp.content
     else:
-        print("Sin proxy — intentando conexion directa")
-
-    convocatorias = []
-
-    url = "https://contratacionesabiertas.oece.gob.pe/api/v1/releases"
-    params = {
-        "page": 1,
-        "order": "desc",
-        "status": "active",
-    }
-    
-    pagina = 1
-    max_paginas = 20
-
-    while pagina <= max_paginas:
-        params["page"] = pagina
-        try:
-            print(f"  Pagina {pagina}...")
-            resp = requests.get(
-                url,
-                params=params,
-                proxies=proxies,
-                timeout=30,
-                verify=False
-            )
-            print(f"  Status: {resp.status_code}")
-
-            if resp.status_code != 200:
-                print(f"  Error HTTP: {resp.text[:200]}")
-                break
-
-            data = resp.json()
-            releases = data.get("releases", [])
-            print(f"  Registros: {len(releases)}")
-
-            if not releases:
-                break
-
-            for r in releases:
-                conv = extraer_de_release(r)
-                if conv:
-                    convocatorias.append(conv)
-
-            if data.get("next"):
-                pagina += 1
-            else:
-                break
-
-        except Exception as e:
-            print(f"  Error en pagina {pagina}: {e}")
-            break
-
-    print(f"Total convocatorias: {len(convocatorias)}")
-    return convocatorias
-
-
-def extraer_de_release(release):
-    try:
-        tender = release.get("tender", {})
-        if not tender:
-            return None
-
-        fecha_cierre = tender.get("tenderPeriod", {}).get("endDate", "")
-        if fecha_cierre:
-            fecha_cierre = fecha_cierre[:10]
-
-        monto = 0.0
-        valor = tender.get("value", {})
-        if valor:
-            try:
-                monto = float(valor.get("amount", 0) or 0)
-            except:
-                monto = 0.0
-
-        entidad = ""
-        buyer = release.get("buyer", {})
-        if buyer:
-            entidad = buyer.get("name", "")
-
-        region = "Lima"
-        addr = buyer.get("address", {})
-        if addr:
-            region = addr.get("region", addr.get("locality", "Lima")) or "Lima"
-
-        return {
-            "id":                release.get("ocid", "")[-20:],
-            "titulo":            tender.get("title", "Sin titulo") or "Sin titulo",
-            "entidad":           entidad,
-            "tipo":              tender.get("procurementMethodDetails", ""),
-            "monto":             monto,
-            "region":            region,
-            "fecha_vencimiento": fecha_cierre,
-            "url_seace":         f"https://contratacionesabiertas.oece.gob.pe/proceso/{release.get('ocid','')}",
-        }
-    except Exception as e:
-        print(f"  Error extrayendo release: {e}")
+        log(f"Error descargando Excel: {resp.status_code}")
         return None
 
+def procesar_excel(contenido):
+    try:
+        import xlrd
+        wb = xlrd.open_workbook(file_contents=contenido)
+        ws = wb.sheet_by_index(0)
+        log(f"Excel abierto: {ws.nrows} filas, {ws.ncols} columnas")
 
-# ─── DATOS DE RESPALDO ───────────────────────────────────────────────────────
+        convocatorias = []
+        for i in range(1, ws.nrows):
+            try:
+                fila = [str(ws.cell_value(i, j)).strip() for j in range(ws.ncols)]
+                if not fila[0] or fila[0] == "":
+                    continue
+
+                entidad    = fila[1] if len(fila) > 1 else ""
+                fecha_pub  = fila[2] if len(fila) > 2 else ""
+                nomenclat  = fila[3] if len(fila) > 3 else ""
+                objeto     = fila[5] if len(fila) > 5 else ""
+                descripcion = fila[6] if len(fila) > 6 else ""
+                monto_str  = fila[7] if len(fila) > 7 else "0"
+                moneda     = fila[8] if len(fila) > 8 else "Soles"
+
+                try:
+                    monto = float(str(monto_str).replace(",", "").replace("---", "0") or 0)
+                except:
+                    monto = 0.0
+
+                # Fecha de publicacion como proxy de vencimiento (estimado +30 dias)
+                fecha_venc = ""
+                if fecha_pub:
+                    try:
+                        partes = fecha_pub.split(" ")[0]
+                        if "/" in partes:
+                            dt = datetime.strptime(partes, "%d/%m/%Y")
+                        else:
+                            dt = datetime.strptime(partes, "%Y-%m-%d")
+                        fecha_venc = (dt + timedelta(days=30)).strftime("%Y-%m-%d")
+                    except:
+                        fecha_venc = ""
+
+                conv = {
+                    "id":               nomenclat or str(i),
+                    "titulo":           descripcion[:100] if descripcion else objeto,
+                    "entidad":          entidad,
+                    "tipo":             objeto,
+                    "monto":            monto,
+                    "region":           "Lima",
+                    "fecha_publicacion": fecha_pub,
+                    "fecha_vencimiento": fecha_venc,
+                    "url_seace":        f"https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/buscadorPublico.xhtml",
+                }
+                convocatorias.append(conv)
+            except Exception as e:
+                continue
+
+        log(f"Convocatorias procesadas: {len(convocatorias)}")
+        return convocatorias
+    except Exception as e:
+        log(f"Error procesando Excel: {e}")
+        return []
 
 def datos_respaldo():
     hoy = datetime.now()
@@ -137,12 +98,7 @@ def datos_respaldo():
         {"id":"F001","titulo":"Adquisicion de equipos de computo","entidad":"Municipalidad de Lima","tipo":"Adjudicacion Simplificada","monto":85000,"region":"Lima","fecha_vencimiento":f(2),"url_seace":"https://seace.gob.pe"},
         {"id":"F002","titulo":"Servicio de limpieza de locales","entidad":"Ministerio de Educacion","tipo":"Concurso Publico","monto":42000,"region":"Lima","fecha_vencimiento":f(15),"url_seace":"https://seace.gob.pe"},
         {"id":"F003","titulo":"Suministro de materiales de construccion","entidad":"Gobierno Regional Cusco","tipo":"Licitacion Publica","monto":320000,"region":"Cusco","fecha_vencimiento":f(7),"url_seace":"https://seace.gob.pe"},
-        {"id":"F004","titulo":"Consultoria en sistemas de informacion","entidad":"SUNAT","tipo":"Concurso Publico","monto":95000,"region":"Lima","fecha_vencimiento":f(22),"url_seace":"https://seace.gob.pe"},
-        {"id":"F005","titulo":"Adquisicion de mobiliario de oficina","entidad":"Ministerio de Salud","tipo":"Adjudicacion Simplificada","monto":28000,"region":"Lima","fecha_vencimiento":f(1),"url_seace":"https://seace.gob.pe"},
     ]
-
-
-# ─── URGENCIA Y EMAIL ────────────────────────────────────────────────────────
 
 def dias_restantes(fecha_str):
     if not fecha_str:
@@ -155,28 +111,26 @@ def dias_restantes(fecha_str):
             continue
     return 999
 
-
 def urgencia(dias):
     if dias < 0:  return "vencido"
     if dias <= 3:  return "urgente"
     if dias <= 10: return "proximo"
     return "normal"
 
-
 def generar_html(convocatorias, fecha, fuente):
-    urgentes = [c for c in convocatorias if c["urg"] == "urgente"]
-    proximas  = [c for c in convocatorias if c["urg"] == "proximo"]
-    normales  = [c for c in convocatorias if c["urg"] == "normal"]
+    activas = [c for c in convocatorias if c["urg"] != "vencido"]
+    urgentes = [c for c in activas if c["urg"] == "urgente"]
+    proximas  = [c for c in activas if c["urg"] == "proximo"]
+    normales  = [c for c in activas if c["urg"] == "normal"]
 
     def fila(c, color):
         dias = c["dias"]
         label = "HOY" if dias == 0 else f"{dias} dias"
         return (
-            f'<tr>'
+            f'<tr style="border-bottom:1px solid #f0f4f8">'
             f'<td style="padding:8px;font-size:13px">{str(c["titulo"])[:70]}</td>'
-            f'<td style="padding:8px;font-size:12px;color:#666">{c["entidad"]}</td>'
+            f'<td style="padding:8px;font-size:12px;color:#666">{c["entidad"][:40]}</td>'
             f'<td style="padding:8px;font-size:12px;color:#666">S/. {c["monto"]:,.0f}</td>'
-            f'<td style="padding:8px;font-size:12px;color:#666">{c["region"]}</td>'
             f'<td style="padding:8px;text-align:center">'
             f'<span style="background:{color};color:white;padding:2px 8px;border-radius:10px;font-size:11px">{label}</span>'
             f'</td></tr>'
@@ -188,12 +142,11 @@ def generar_html(convocatorias, fecha, fuente):
         filas = "".join([fila(c, color) for c in items])
         return (
             f'<h3 style="color:{color};margin:20px 0 8px">{titulo} ({len(items)})</h3>'
-            f'<table style="width:100%;border-collapse:collapse;background:white;border-radius:8px;overflow:hidden">'
+            f'<table style="width:100%;border-collapse:collapse;background:white;border-radius:8px">'
             f'<thead><tr style="background:#f7fafc">'
             f'<th style="padding:8px;text-align:left;font-size:11px;color:#999">TITULO</th>'
             f'<th style="padding:8px;text-align:left;font-size:11px;color:#999">ENTIDAD</th>'
             f'<th style="padding:8px;text-align:left;font-size:11px;color:#999">MONTO</th>'
-            f'<th style="padding:8px;text-align:left;font-size:11px;color:#999">REGION</th>'
             f'<th style="padding:8px;text-align:center;font-size:11px;color:#999">VENCE</th>'
             f'</tr></thead><tbody>{filas}</tbody></table>'
         )
@@ -205,7 +158,7 @@ def generar_html(convocatorias, fecha, fuente):
     <div style="max-width:860px;margin:0 auto">
     <div style="background:linear-gradient(135deg,#1a365d,#2b6cb0);color:white;padding:20px 30px;border-radius:12px 12px 0 0">
     <h1 style="margin:0;font-size:20px">LicitAlertas — Reporte Diario</h1>
-    <p style="margin:4px 0 0;opacity:0.85">{fecha} | {len(convocatorias)} convocatorias | {len(urgentes)} urgentes |
+    <p style="margin:4px 0 0;opacity:0.85">{fecha} | {len(activas)} convocatorias activas |
     <span style="background:{color_badge};padding:2px 8px;border-radius:10px;font-size:11px">{badge}</span></p>
     </div>
     <div style="background:white;padding:20px 30px;border-radius:0 0 12px 12px">
@@ -214,14 +167,14 @@ def generar_html(convocatorias, fecha, fuente):
     {tabla("NORMALES", normales[:20], "#38a169")}
     </div></div></body></html>'''
 
-
 def enviar_email(convocatorias, fecha, fuente):
     if not SENDGRID_API_KEY or not EMAIL_USER or not EMAIL_DESTINO:
-        print("Credenciales SendGrid no configuradas.")
+        log("Credenciales SendGrid no configuradas.")
         return
-    urgentes = len([c for c in convocatorias if c["urg"] == "urgente"])
-    asunto = f"LicitAlertas {fecha} — {urgentes} URGENTES | {len(convocatorias)} convocatorias [{fuente}]" if urgentes > 0 \
-             else f"LicitAlertas {fecha} — {len(convocatorias)} convocatorias [{fuente}]"
+    activas = [c for c in convocatorias if c["urg"] != "vencido"]
+    urgentes = len([c for c in activas if c["urg"] == "urgente"])
+    asunto = f"LicitAlertas {fecha} — {urgentes} URGENTES | {len(activas)} convocatorias [{fuente}]" if urgentes > 0 \
+             else f"LicitAlertas {fecha} — {len(activas)} convocatorias [{fuente}]"
     html = generar_html(convocatorias, fecha, fuente)
     resp = requests.post(
         "https://api.sendgrid.com/v3/mail/send",
@@ -234,31 +187,30 @@ def enviar_email(convocatorias, fecha, fuente):
         }
     )
     if resp.status_code == 202:
-        print(f"Email enviado a {EMAIL_DESTINO}")
+        log(f"Email enviado a {EMAIL_DESTINO}")
     else:
-        print(f"Error email: {resp.status_code} {resp.text}")
-
-
-# ─── MAIN ────────────────────────────────────────────────────────────────────
+        log(f"Error email: {resp.status_code} {resp.text}")
 
 def main():
     fecha = datetime.now().strftime("%d/%m/%Y")
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Iniciando LicitAlertas...")
+    log("Iniciando LicitAlertas...")
 
-    convocatorias = obtener_convocatorias()
-    fuente = "API OECE"
+    fuente = "SEACE Excel"
+    contenido = descargar_excel_github()
+
+    if contenido:
+        convocatorias = procesar_excel(contenido)
+    else:
+        convocatorias = []
 
     if not convocatorias:
-        print("Usando datos de respaldo.")
+        log("Sin datos del Excel, usando respaldo.")
         convocatorias = datos_respaldo()
         fuente = "Respaldo"
 
     for c in convocatorias:
         c["dias"] = dias_restantes(c.get("fecha_vencimiento", ""))
         c["urg"]  = urgencia(c["dias"])
-        print(f"DEBUG: {c['titulo'][:40]} | vence: {c['fecha_vencimiento']} | dias: {c['dias']} | urg: {c['urg']}")
-
-    convocatorias = [c for c in convocatorias if c["urg"] != "vencido"]
 
     output = {
         "ultima_actualizacion": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -268,11 +220,10 @@ def main():
     }
     with open("datos.json", "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
-    print(f"datos.json guardado: {len(convocatorias)} convocatorias — fuente: {fuente}")
+    log(f"datos.json guardado: {len(convocatorias)} convocatorias — fuente: {fuente}")
 
     enviar_email(convocatorias, fecha, fuente)
-    print("Proceso completado.")
-
+    log("Proceso completado.")
 
 if __name__ == "__main__":
     main()
