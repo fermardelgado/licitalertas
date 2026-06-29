@@ -37,8 +37,9 @@ def obtener_convocatorias():
     params = {
         "page": 1,
         "order": "desc",
+        "status": "active",
     }
-
+    
     pagina = 1
     max_paginas = 5
 
