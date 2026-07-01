@@ -2,7 +2,7 @@
   {
     "nombre": "Fernando",
     "email": "fermardelgado@yahoo.com",
-    "rubros": [],
+    "rubros": ["computo", "limpieza"],
     "regiones": [],
     "monto_min": 0,
     "monto_max": 999999999
