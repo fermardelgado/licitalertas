@@ -1,0 +1,58 @@
+{
+  "obras_civiles": {
+    "etiqueta": "Obras civiles e infraestructura",
+    "palabras_clave": ["EJECUCION DE LA OBRA", "EJECUCIÓN DE LA OBRA", "MEJORAMIENTO DEL SERVICIO", "CONSTRUCCION DE", "CONSTRUCCIÓN DE", "AMPLIACION DEL SERVICIO", "AMPLIACIÓN DEL SERVICIO"]
+  },
+  "ferreteria_construccion": {
+    "etiqueta": "Ferretería y materiales de construcción",
+    "palabras_clave": ["FERRETERIA", "FERRETERÍA", "CONSTRUCCION", "CONSTRUCCIÓN", "CEMENTO", "FIERRO", "MATERIALES DE CONSTRUCCION", "ENCOFRADO", "MADERA"]
+  },
+  "combustibles": {
+    "etiqueta": "Combustibles y lubricantes",
+    "palabras_clave": ["COMBUSTIBLE", "DIESEL", "GASHOL", "PETROLEO", "PETRÓLEO", "LUBRICANTE"]
+  },
+  "salud_medico": {
+    "etiqueta": "Salud, medicamentos y veterinaria",
+    "palabras_clave": ["MEDICAMENTOS", "MEDICINA", "AMBULANCIAS", "VETERINARIA", "VETERINARIOS", "SALUD", "HOSPITAL", "CLINICA"]
+  },
+  "limpieza_saneamiento": {
+    "etiqueta": "Limpieza y saneamiento",
+    "palabras_clave": ["LIMPIEZA", "ASEO", "FUMIGACION", "FUMIGACIÓN", "SANEAMIENTO", "RESIDUOS SOLIDOS", "RESIDUOS SÓLIDOS"]
+  },
+  "consultoria_expediente": {
+    "etiqueta": "Consultoría y expedientes técnicos",
+    "palabras_clave": ["EXPEDIENTE TECNICO", "EXPEDIENTE TÉCNICO", "CONSULTORIA DE OBRA", "CONSULTORÍA DE OBRA", "SUPERVISION DE LA OBRA", "SUPERVISIÓN DE LA OBRA"]
+  },
+  "alimentacion_catering": {
+    "etiqueta": "Alimentación y catering",
+    "palabras_clave": ["ALIMENTACION", "ALIMENTACIÓN", "ALIMENTARIO", "COMEDOR", "VALES", "VIVERES", "VÍVERES", "INSUMOS"]
+  },
+  "seguridad_vigilancia": {
+    "etiqueta": "Seguridad y vigilancia",
+    "palabras_clave": ["SEGURIDAD Y VIGILANCIA", "VIGILANCIA"]
+  },
+  "mantenimiento_vehicular": {
+    "etiqueta": "Mantenimiento vehicular y de equipos",
+    "palabras_clave": ["MANTENIMIENTO PREVENTIVO", "UNIDADES VEHICULARES", "MANTENIMIENTO MECANICO", "MANTENIMIENTO MECÁNICO", "MANTENIMIENTO DE EQUIPOS"]
+  },
+  "personal_consultoria_individual": {
+    "etiqueta": "Servicios profesionales y consultoría individual",
+    "palabras_clave": ["ESPECIALISTA", "ANALISTA PROGRAMADOR", "ANALISTA", "PERSONA NATURAL O JURIDICA", "PERSONA NATURAL O JURÍDICA"]
+  },
+  "computo_tecnologia": {
+    "etiqueta": "Cómputo y tecnología",
+    "palabras_clave": ["EQUIPOS DE COMPUTO", "EQUIPOS DE CÓMPUTO", "TECNOLOGIC", "TECNOLÓGIC", "SOFTWARE", "VIDEOVIGILANCIA", "INFORMATIC", "INFORMÁTIC"]
+  },
+  "mobiliario_oficina": {
+    "etiqueta": "Mobiliario y alquiler de inmuebles",
+    "palabras_clave": ["MOBILIARIO", "VENTANAS DE ALUMINIO", "ALQUILER DE INMUEBLE"]
+  },
+  "agropecuario_veterinario": {
+    "etiqueta": "Agropecuario",
+    "palabras_clave": ["PRODUCTOS VETERINARIOS", "MIEL", "PANADERIA", "PANADERÍA", "AGROPECUARIO"]
+  },
+  "energia_electrico": {
+    "etiqueta": "Energía y eléctrico",
+    "palabras_clave": ["ENERGIA SOLAR", "ENERGÍA SOLAR", "FOTOVOLTAICA", "ELECTRICO", "ELÉCTRICO", "ELECTROLITO"]
+  }
+}
