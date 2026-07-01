@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Instalar dependencias Python
-        run: pip install requests urllib3 xlrd
+        run: pip install requests urllib3 xlrd supabase
       - name: Ejecutar scraper
         env:
           SENDGRID_API_KEY:  ${{ secrets.SENDGRID_API_KEY }}
@@ -25,4 +25,6 @@ jobs:
           BRIGHTDATA_USER:   ${{ secrets.BRIGHTDATA_USER }}
           BRIGHTDATA_PASS:   ${{ secrets.BRIGHTDATA_PASS }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
+          SUPABASE_URL:      ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:      ${{ secrets.SUPABASE_KEY }}
         run: python scraper.py
