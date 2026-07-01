@@ -9,10 +9,13 @@ SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
 EMAIL_USER       = os.environ.get("EMAIL_USER", "")
 EMAIL_DESTINO    = os.environ.get("EMAIL_DESTINO", "")
 GITHUB_TOKEN     = os.environ.get("GITHUB_TOKEN", "")
+SUPABASE_URL     = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY     = os.environ.get("SUPABASE_KEY", "")
 
 GITHUB_REPO = "fermardelgado/licitalertas"
 EXCEL_PATH  = "seace_data.xls"
 USUARIOS_PATH = "usuarios.json"
+TAXONOMIA_PATH = "taxonomia.json"
 
 def log(msg):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] {msg}")
@@ -31,7 +34,27 @@ def descargar_excel_github():
         log(f"Error descargando Excel: {resp.status_code}")
         return None
 
-def procesar_excel(contenido):
+def cargar_taxonomia():
+    try:
+        with open(TAXONOMIA_PATH, "r", encoding="utf-8") as f:
+            tax = json.load(f)
+            log(f"Taxonomia cargada: {len(tax)} categorias")
+            return tax
+    except Exception as e:
+        log(f"No se pudo cargar {TAXONOMIA_PATH}: {e}")
+        return {}
+
+def detectar_categorias(texto, taxonomia):
+    texto_up = texto.upper()
+    encontradas = []
+    for cat_id, cat in taxonomia.items():
+        for palabra in cat.get("palabras_clave", []):
+            if palabra.upper() in texto_up:
+                encontradas.append(cat_id)
+                break
+    return encontradas
+
+def procesar_excel(contenido, taxonomia):
     try:
         import xlrd
         wb = xlrd.open_workbook(file_contents=contenido)
@@ -58,7 +81,6 @@ def procesar_excel(contenido):
                 except:
                     monto = 0.0
 
-                # Fecha de publicacion como proxy de vencimiento (estimado +30 dias)
                 fecha_venc = ""
                 if fecha_pub:
                     try:
@@ -71,13 +93,20 @@ def procesar_excel(contenido):
                     except:
                         fecha_venc = ""
 
+                titulo = descripcion[:100] if descripcion else objeto
+                texto_para_categorizar = f"{descripcion} {objeto} {entidad}"
+                categorias = detectar_categorias(texto_para_categorizar, taxonomia)
+
                 conv = {
                     "id":               nomenclat or str(i),
-                    "titulo":           descripcion[:100] if descripcion else objeto,
+                    "nomenclatura":     nomenclat or f"SIN-NOMENCLATURA-{i}",
+                    "titulo":           titulo,
+                    "descripcion":      descripcion,
                     "entidad":          entidad,
                     "tipo":             objeto,
                     "monto":            monto,
                     "region":           "Lima",  # PENDIENTE: extraer region real del Excel
+                    "categorias":       categorias,
                     "fecha_publicacion": fecha_pub,
                     "fecha_vencimiento": fecha_venc,
                     "url_seace":        f"https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/buscadorPublico.xhtml",
@@ -96,9 +125,9 @@ def datos_respaldo():
     hoy = datetime.now()
     f = lambda d: (hoy + timedelta(days=d)).strftime("%Y-%m-%d")
     return [
-        {"id":"F001","titulo":"Adquisicion de equipos de computo","entidad":"Municipalidad de Lima","tipo":"Adjudicacion Simplificada","monto":85000,"region":"Lima","fecha_vencimiento":f(2),"url_seace":"https://seace.gob.pe"},
-        {"id":"F002","titulo":"Servicio de limpieza de locales","entidad":"Ministerio de Educacion","tipo":"Concurso Publico","monto":42000,"region":"Lima","fecha_vencimiento":f(15),"url_seace":"https://seace.gob.pe"},
-        {"id":"F003","titulo":"Suministro de materiales de construccion","entidad":"Gobierno Regional Cusco","tipo":"Licitacion Publica","monto":320000,"region":"Cusco","fecha_vencimiento":f(7),"url_seace":"https://seace.gob.pe"},
+        {"id":"F001","nomenclatura":"F001","titulo":"Adquisicion de equipos de computo","descripcion":"","entidad":"Municipalidad de Lima","tipo":"Adjudicacion Simplificada","monto":85000,"region":"Lima","categorias":[],"fecha_vencimiento":f(2),"url_seace":"https://seace.gob.pe"},
+        {"id":"F002","nomenclatura":"F002","titulo":"Servicio de limpieza de locales","descripcion":"","entidad":"Ministerio de Educacion","tipo":"Concurso Publico","monto":42000,"region":"Lima","categorias":[],"fecha_vencimiento":f(15),"url_seace":"https://seace.gob.pe"},
+        {"id":"F003","nomenclatura":"F003","titulo":"Suministro de materiales de construccion","descripcion":"","entidad":"Gobierno Regional Cusco","tipo":"Licitacion Publica","monto":320000,"region":"Cusco","categorias":[],"fecha_vencimiento":f(7),"url_seace":"https://seace.gob.pe"},
     ]
 
 def dias_restantes(fecha_str):
@@ -132,7 +161,12 @@ def coincide_con_usuario(c, usuario):
     texto = f"{c.get('titulo','')} {c.get('tipo','')} {c.get('entidad','')}".lower()
 
     rubros = usuario.get("rubros", [])
-    if rubros:
+    categorias_usuario = usuario.get("categorias", [])
+
+    if categorias_usuario:
+        if not any(cat in c.get("categorias", []) for cat in categorias_usuario):
+            return False
+    elif rubros:
         if not any(r.lower() in texto for r in rubros):
             return False
 
@@ -151,6 +185,54 @@ def coincide_con_usuario(c, usuario):
 
 def filtrar_para_usuario(convocatorias, usuario):
     return [c for c in convocatorias if coincide_con_usuario(c, usuario)]
+
+def guardar_en_supabase(convocatorias):
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        log("SUPABASE_URL o SUPABASE_KEY no configurados, se omite guardado en base de datos.")
+        return
+    try:
+        from supabase import create_client
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        log(f"Error conectando a Supabase: {e}")
+        return
+
+    guardadas = 0
+    errores = 0
+    for c in convocatorias:
+        try:
+            fecha_pub = None
+            if c.get("fecha_publicacion"):
+                try:
+                    partes = str(c["fecha_publicacion"]).split(" ")[0]
+                    if "/" in partes:
+                        fecha_pub = datetime.strptime(partes, "%d/%m/%Y").strftime("%Y-%m-%d")
+                    else:
+                        fecha_pub = partes
+                except:
+                    fecha_pub = None
+
+            registro = {
+                "nomenclatura": c["nomenclatura"],
+                "entidad": c.get("entidad", ""),
+                "titulo": c.get("titulo", ""),
+                "descripcion": c.get("descripcion", ""),
+                "categorias": c.get("categorias", []),
+                "monto": c.get("monto", 0),
+                "region": c.get("region", ""),
+                "fecha_publicacion": fecha_pub,
+                "fecha_vencimiento": c.get("fecha_vencimiento") or None,
+                "url_seace": c.get("url_seace", ""),
+                "actualizado_en": datetime.now().isoformat(),
+            }
+            supabase.table("convocatorias").upsert(registro, on_conflict="nomenclatura").execute()
+            guardadas += 1
+        except Exception as e:
+            errores += 1
+            if errores <= 3:
+                log(f"Error guardando '{c.get('nomenclatura','?')}' en Supabase: {e}")
+
+    log(f"Supabase: {guardadas} convocatorias guardadas/actualizadas, {errores} errores")
 
 def generar_html(convocatorias, fecha, fuente):
     activas = [c for c in convocatorias if c["urg"] != "vencido"]
@@ -233,11 +315,13 @@ def main():
     fecha = datetime.now().strftime("%d/%m/%Y")
     log("Iniciando LicitAlertas...")
 
+    taxonomia = cargar_taxonomia()
+
     fuente = "SEACE Excel"
     contenido = descargar_excel_github()
 
     if contenido:
-        convocatorias = procesar_excel(contenido)
+        convocatorias = procesar_excel(contenido, taxonomia)
     else:
         convocatorias = []
 
@@ -259,6 +343,10 @@ def main():
     with open("datos.json", "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
     log(f"datos.json guardado: {len(convocatorias)} convocatorias — fuente: {fuente}")
+
+    # NUEVO: guardar en base de datos persistente (Supabase)
+    if fuente != "Respaldo":
+        guardar_en_supabase(convocatorias)
 
     usuarios = cargar_usuarios()
 
