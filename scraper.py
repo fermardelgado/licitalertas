@@ -12,6 +12,7 @@ GITHUB_TOKEN     = os.environ.get("GITHUB_TOKEN", "")
 
 GITHUB_REPO = "fermardelgado/licitalertas"
 EXCEL_PATH  = "seace_data.xls"
+USUARIOS_PATH = "usuarios.json"
 
 def log(msg):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] {msg}")
@@ -76,7 +77,7 @@ def procesar_excel(contenido):
                     "entidad":          entidad,
                     "tipo":             objeto,
                     "monto":            monto,
-                    "region":           "Lima",
+                    "region":           "Lima",  # PENDIENTE: extraer region real del Excel
                     "fecha_publicacion": fecha_pub,
                     "fecha_vencimiento": fecha_venc,
                     "url_seace":        f"https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/buscadorPublico.xhtml",
@@ -116,6 +117,40 @@ def urgencia(dias):
     if dias <= 3:  return "urgente"
     if dias <= 10: return "proximo"
     return "normal"
+
+def cargar_usuarios():
+    try:
+        with open(USUARIOS_PATH, "r", encoding="utf-8") as f:
+            usuarios = json.load(f)
+            log(f"Usuarios cargados: {len(usuarios)}")
+            return usuarios
+    except Exception as e:
+        log(f"No se pudo cargar {USUARIOS_PATH}: {e}")
+        return []
+
+def coincide_con_usuario(c, usuario):
+    texto = f"{c.get('titulo','')} {c.get('tipo','')} {c.get('entidad','')}".lower()
+
+    rubros = usuario.get("rubros", [])
+    if rubros:
+        if not any(r.lower() in texto for r in rubros):
+            return False
+
+    regiones = usuario.get("regiones", [])
+    if regiones:
+        if c.get("region", "") not in regiones:
+            return False
+
+    monto = c.get("monto", 0)
+    if monto < usuario.get("monto_min", 0):
+        return False
+    if monto > usuario.get("monto_max", 999999999999):
+        return False
+
+    return True
+
+def filtrar_para_usuario(convocatorias, usuario):
+    return [c for c in convocatorias if coincide_con_usuario(c, usuario)]
 
 def generar_html(convocatorias, fecha, fuente):
     activas = [c for c in convocatorias if c["urg"] != "vencido"]
@@ -167,11 +202,14 @@ def generar_html(convocatorias, fecha, fuente):
     {tabla("NORMALES", normales[:20], "#38a169")}
     </div></div></body></html>'''
 
-def enviar_email(convocatorias, fecha, fuente):
-    if not SENDGRID_API_KEY or not EMAIL_USER or not EMAIL_DESTINO:
-        log("Credenciales SendGrid no configuradas.")
+def enviar_email_a(destino, convocatorias, fecha, fuente, nombre_usuario=""):
+    if not SENDGRID_API_KEY or not EMAIL_USER or not destino:
+        log("Credenciales SendGrid o destino no configurados.")
         return
     activas = [c for c in convocatorias if c["urg"] != "vencido"]
+    if not activas:
+        log(f"Sin coincidencias para {destino}, no se envia email.")
+        return
     urgentes = len([c for c in activas if c["urg"] == "urgente"])
     asunto = f"LicitAlertas {fecha} — {urgentes} URGENTES | {len(activas)} convocatorias [{fuente}]" if urgentes > 0 \
              else f"LicitAlertas {fecha} — {len(activas)} convocatorias [{fuente}]"
@@ -180,16 +218,16 @@ def enviar_email(convocatorias, fecha, fuente):
         "https://api.sendgrid.com/v3/mail/send",
         headers={"Authorization": f"Bearer {SENDGRID_API_KEY}", "Content-Type": "application/json"},
         json={
-            "personalizations": [{"to": [{"email": EMAIL_DESTINO}]}],
+            "personalizations": [{"to": [{"email": destino}]}],
             "from": {"email": EMAIL_USER},
             "subject": asunto,
             "content": [{"type": "text/html", "value": html}],
         }
     )
     if resp.status_code == 202:
-        log(f"Email enviado a {EMAIL_DESTINO}")
+        log(f"Email enviado a {destino} ({nombre_usuario}) — {len(activas)} convocatorias")
     else:
-        log(f"Error email: {resp.status_code} {resp.text}")
+        log(f"Error email a {destino}: {resp.status_code} {resp.text}")
 
 def main():
     fecha = datetime.now().strftime("%d/%m/%Y")
@@ -222,7 +260,18 @@ def main():
         json.dump(output, f, ensure_ascii=False, indent=2)
     log(f"datos.json guardado: {len(convocatorias)} convocatorias — fuente: {fuente}")
 
-    enviar_email(convocatorias, fecha, fuente)
+    usuarios = cargar_usuarios()
+
+    if usuarios:
+        for usuario in usuarios:
+            filtradas = filtrar_para_usuario(convocatorias, usuario)
+            enviar_email_a(usuario.get("email"), filtradas, fecha, fuente, usuario.get("nombre", ""))
+    elif EMAIL_DESTINO:
+        log("usuarios.json vacio o no encontrado, usando EMAIL_DESTINO como respaldo.")
+        enviar_email_a(EMAIL_DESTINO, convocatorias, fecha, fuente)
+    else:
+        log("No hay usuarios ni EMAIL_DESTINO configurado. No se envio ningun email.")
+
     log("Proceso completado.")
 
 if __name__ == "__main__":
