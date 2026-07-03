@@ -411,6 +411,7 @@ def guardar_en_supabase(convocatorias):
             registro = {
                 "nomenclatura":      c["nomenclatura"],
                 "entidad":           c.get("entidad", ""),
+                "tipo":              c.get("tipo", ""),
                 "titulo":            c.get("titulo", ""),
                 "descripcion":       c.get("descripcion", ""),
                 "categorias":        c.get("categorias", []),
