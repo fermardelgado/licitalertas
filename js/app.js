@@ -2,6 +2,7 @@
 const SUPABASE_URL = "https://hjbmcdxbiajmbczgyhxk.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqYm1jZHhiaWFqbWJjemd5aHhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5MzA0MTksImV4cCI6MjA5ODUwNjQxOX0.8xWlQbDrYCTMvqZLXz9aIwCACrMcAsrVWYUo8_gegmI";
 const POR_PAGINA = 50;
+const PING_INTERVALO = 5 * 60 * 1000; // 5 minutos
 
 // ── SESION ───────────────────────────────────────────────
 const { createClient } = supabase;
@@ -10,20 +11,80 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 async function verificarSesion() {
   const { data } = await sb.auth.getSession();
   if (!data.session) { window.location.href = "login.html"; return null; }
+
+  const email = data.session.user.email;
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/usuarios?email=eq.${encodeURIComponent(email)}&select=plan_activo,fecha_expiracion`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+  );
+  const lista = await r.json();
+  if (lista.length) {
+    const u = lista[0];
+    const vencido = u.fecha_expiracion && new Date(u.fecha_expiracion) < new Date();
+    if (!u.plan_activo || vencido) {
+      window.location.href = "pagar.html";
+      return null;
+    }
+  }
+
   return data.session;
 }
 
 async function salir() {
+  await cerrarSesionActiva();
   await sb.auth.signOut();
   window.location.href = "login.html";
 }
 
+// ── CONTROL DE SESION ACTIVA ─────────────────────────────
+let emailSesion = "";
+
+async function cerrarSesionActiva() {
+  if (!emailSesion) return;
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/sesiones_activas?usuario_email=eq.${encodeURIComponent(emailSesion)}`,
+    {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    }
+  );
+}
+
+async function pingSession() {
+  if (!emailSesion) return;
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/sesiones_activas?usuario_email=eq.${encodeURIComponent(emailSesion)}`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ ultimo_ping: new Date().toISOString() })
+    }
+  );
+}
+
+function iniciarPing() {
+  setInterval(pingSession, PING_INTERVALO);
+}
+
+// beforeunload: advertencia + sendBeacon para cerrar sesion
+window.addEventListener("beforeunload", () => {
+  if (!emailSesion) return;
+  const url = `${SUPABASE_URL}/rest/v1/sesiones_activas?usuario_email=eq.${encodeURIComponent(emailSesion)}`;
+  navigator.sendBeacon(url + "&_method=DELETE",
+    new Blob([JSON.stringify({})], { type: "application/json" })
+  );
+});
+
 // ── ESTADO ──────────────────────────────────────────────
-let todas     = [];
-let filtradas = [];
-let pagina    = 1;
-let vista     = "tabla";
-let charts    = {};
+let todas       = [];
+let filtradas   = [];
+let pagina      = 1;
+let vista       = "tabla";
+let charts      = {};
 let vistaEstado = "abiertas";
 
 // ── UTILS ───────────────────────────────────────────────
@@ -43,8 +104,9 @@ function urgencia(dias) {
 
 function fmtFecha(f) {
   if (!f) return "—";
+  const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
   const [y, m, d] = f.slice(0,10).split("-");
-  return `${d}/${m}/${y}`;
+  return `${d}-${meses[parseInt(m,10)-1]}-${y}`;
 }
 
 function fmtMonto(n) {
@@ -73,15 +135,15 @@ function badgeUrg(urg, dias) {
 
 // ── BARRA DE PROGRESO TEMPORAL ───────────────────────────
 function barraProgreso(c) {
-  const pub  = c.fecha_publicacion ? new Date(c.fecha_publicacion) : null;
-  const ven  = c.fecha_vencimiento ? new Date(c.fecha_vencimiento) : null;
+  const pub = c.fecha_publicacion ? new Date(c.fecha_publicacion) : null;
+  const ven = c.fecha_vencimiento ? new Date(c.fecha_vencimiento) : null;
   if (!pub || !ven) return "";
 
-  const total     = Math.max(1, Math.round((ven - pub) / 86400000));
+  const total         = Math.max(1, Math.round((ven - pub) / 86400000));
   const transcurridos = Math.round((hoy() - pub) / 86400000);
-  const pct       = Math.min(100, Math.max(0, Math.round((transcurridos / total) * 100)));
-  const restantes = Math.max(0, total - transcurridos);
-  const colorCls  = c.urg === "urgente" ? "urgente" : c.urg === "proximo" ? "proximo" : c.urg === "vencido" ? "concluida" : "activa";
+  const pct           = Math.min(100, Math.max(0, Math.round((transcurridos / total) * 100)));
+  const restantes     = Math.max(0, total - transcurridos);
+  const colorCls      = c.urg === "urgente" ? "urgente" : c.urg === "proximo" ? "proximo" : c.urg === "vencido" ? "concluida" : "activa";
 
   return `
     <div class="ficha-progreso">
@@ -99,7 +161,7 @@ function barraProgreso(c) {
       <div class="ficha-progreso-dias">
         ${c.urg === "vencido"
           ? "Proceso concluido"
-          : `${transcurridos} días transcurridos &nbsp;·&nbsp; <strong>${restantes} días restantes</strong>`}
+          : `${transcurridos} dias transcurridos &nbsp;·&nbsp; <strong>${restantes} dias restantes</strong>`}
       </div>
     </div>`;
 }
@@ -109,7 +171,9 @@ async function cargar() {
   const sesion = await verificarSesion();
   if (!sesion) return;
 
-  document.getElementById("header-user").textContent = sesion.user.email || "";
+  emailSesion = sesion.user.email || "";
+  document.getElementById("header-user").textContent = emailSesion;
+  iniciarPing();
 
   try {
     let acum = [], offset = 0;
@@ -138,7 +202,7 @@ async function cargar() {
 
     const ultima = todas[0]?.fecha_publicacion?.slice(0,10) || "";
     document.getElementById("header-meta").textContent =
-      `${todas.length} convocatorias · actualizado ${ultima}`;
+      `${todas.length} convocatorias · actualizado ${fmtFecha(ultima)}`;
 
     aplicarFiltros();
   } catch(e) {
@@ -236,13 +300,13 @@ async function abrirFicha(id) {
     : "";
 
   body.innerHTML = `
-    <div class="ficha-titulo">${c.titulo || c.descripcion || "Sin título"}</div>
+    <div class="ficha-titulo">${c.titulo || c.descripcion || "Sin titulo"}</div>
     <div class="ficha-entidad">${c.entidad || "—"}</div>
     ${barraProgreso(c)}
     <div class="ficha-datos">
       <div><div class="ficha-dato-lbl">Nomenclatura</div><div class="ficha-dato-val">${c.nomenclatura || "—"}</div></div>
       <div><div class="ficha-dato-lbl">Objeto</div><div class="ficha-dato-val">${c.tipo || "—"}</div></div>
-      <div><div class="ficha-dato-lbl">Región</div><div class="ficha-dato-val">${c.region || "—"}</div></div>
+      <div><div class="ficha-dato-lbl">Region</div><div class="ficha-dato-val">${c.region || "—"}</div></div>
       <div><div class="ficha-dato-lbl">Monto</div><div class="ficha-dato-val">${fmtMonto(c.monto)}</div></div>
       <div><div class="ficha-dato-lbl">Estado</div><div class="ficha-dato-val">${badgeUrg(c.urg, c.dias)}</div></div>
       <div><div class="ficha-dato-lbl">SEACE</div><div class="ficha-dato-val">${linkSeace || "—"}</div></div>
@@ -262,7 +326,7 @@ async function abrirFicha(id) {
 
     if (!docs.length) {
       document.getElementById("ficha-docs").innerHTML =
-        `<div class="msg-center" style="padding:20px">Documentos aún no extraídos para esta convocatoria.</div>`;
+        `<div class="msg-center" style="padding:20px">Documentos aun no extraidos para esta convocatoria.</div>`;
       return;
     }
 
@@ -317,7 +381,7 @@ function renderLista() {
     total === 0 ? "Sin resultados" :
     `Mostrando ${inicio+1}–${Math.min(inicio+POR_PAGINA, total)} de ${total}`;
   document.getElementById("pag-info").textContent =
-    total === 0 ? "" : `Página ${pagina} de ${totPag}`;
+    total === 0 ? "" : `Pagina ${pagina} de ${totPag}`;
   document.getElementById("btn-prev").disabled = pagina <= 1;
   document.getElementById("btn-next").disabled = pagina >= totPag;
 
@@ -331,7 +395,7 @@ function renderLista() {
     const filas = pag.map(c => `
       <tr>
         <td class="td-titulo">
-          <div class="titulo-txt">${c.titulo || c.descripcion || "Sin título"}</div>
+          <div class="titulo-txt">${c.titulo || c.descripcion || "Sin titulo"}</div>
           <div class="entidad-txt">${c.entidad || "—"}</div>
         </td>
         <td>${tagObj(c.tipo)}</td>
@@ -343,7 +407,7 @@ function renderLista() {
     document.getElementById("contenido-lista").innerHTML = `
       <table>
         <thead><tr>
-          <th>Título / Entidad</th><th>Objeto</th><th>Región</th>
+          <th>Titulo / Entidad</th><th>Objeto</th><th>Region</th>
           <th>Monto</th><th>Vence</th><th>Ficha</th>
         </tr></thead>
         <tbody>${filas}</tbody>
@@ -351,7 +415,7 @@ function renderLista() {
   } else {
     const cards = pag.map(c => `
       <div class="card ${c.urg}">
-        <div class="card-titulo">${(c.titulo || c.descripcion || "Sin título").slice(0,90)}</div>
+        <div class="card-titulo">${(c.titulo || c.descripcion || "Sin titulo").slice(0,90)}</div>
         <div class="card-meta">
           <span>&#127963; ${(c.entidad||"—").slice(0,50)}</span>
           <span>&#128205; ${c.region||"—"} &nbsp;·&nbsp; ${tagObj(c.tipo)}</span>
@@ -433,7 +497,7 @@ function renderGraficos() {
   const urgMap = { urgente:0, proximo:0, normal:0, vencido:0 };
   filtradas.forEach(c => urgMap[c.urg]++);
   mkChart("chart-urgencia","bar",
-    ["Urgente","Próxima","Normal","Vencida"],
+    ["Urgente","Proxima","Normal","Vencida"],
     [urgMap.urgente, urgMap.proximo, urgMap.normal, urgMap.vencido],
     ["#C53030","#B7791F","#276749","#718096"],
     { scales: { y: { beginAtZero:true, grid:{color:"#F4F6FA"} } } }
