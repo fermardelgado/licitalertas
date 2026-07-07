@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LicitAlertas — Panel de Convocatorias</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">Licit<span>Alertas</span></div>
+  <div class="header-right">
+    <div class="header-meta" id="header-meta">Cargando...</div>
+    <div class="header-user" id="header-user"></div>
+    <button class="btn-salir" onclick="salir()">Salir</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR FILTROS -->
+  <aside>
+    <div class="sidebar-section">
+      <span class="sidebar-label">Buscar</span>
+      <input type="text" id="f-busqueda" placeholder="Título o entidad..." oninput="aplicarFiltros()">
+    </div>
+
+    <div class="sidebar-section">
+      <span class="sidebar-label">Objeto</span>
+      <div class="check-group">
+        <label class="check-item"><input type="checkbox" value="BIEN" onchange="aplicarFiltros()"> Bien</label>
+        <label class="check-item"><input type="checkbox" value="SERVICIO" onchange="aplicarFiltros()"> Servicio</label>
+        <label class="check-item"><input type="checkbox" value="OBRA" onchange="aplicarFiltros()"> Obra</label>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <span class="sidebar-label">Región</span>
+      <select id="f-region" onchange="aplicarFiltros()">
+        <option value="">Todas</option>
+        <option value="Nacional">Nacional</option>
+        <option value="Lima">Lima</option>
+        <option value="Arequipa">Arequipa</option>
+        <option value="La Libertad">La Libertad</option>
+        <option value="Cusco">Cusco</option>
+        <option value="Piura">Piura</option>
+        <option value="Junín">Junín</option>
+        <option value="Puno">Puno</option>
+        <option value="Ancash">Ancash</option>
+        <option value="Lambayeque">Lambayeque</option>
+        <option value="Ica">Ica</option>
+        <option value="Ayacucho">Ayacucho</option>
+        <option value="San Martín">San Martín</option>
+        <option value="Huánuco">Huánuco</option>
+        <option value="Cajamarca">Cajamarca</option>
+        <option value="Loreto">Loreto</option>
+        <option value="Ucayali">Ucayali</option>
+        <option value="Tacna">Tacna</option>
+        <option value="Moquegua">Moquegua</option>
+        <option value="Tumbes">Tumbes</option>
+        <option value="Amazonas">Amazonas</option>
+        <option value="Madre de Dios">Madre de Dios</option>
+        <option value="Pasco">Pasco</option>
+        <option value="Huancavelica">Huancavelica</option>
+        <option value="Apurímac">Apurímac</option>
+        <option value="Callao">Callao</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section">
+      <span class="sidebar-label">Urgencia</span>
+      <select id="f-urgencia" onchange="aplicarFiltros()">
+        <option value="">Todas</option>
+        <option value="urgente">🔴 Urgente (≤3 días)</option>
+        <option value="proximo">🟡 Próxima (≤10 días)</option>
+        <option value="normal">🟢 Normal</option>
+        <option value="vencido">⚫ Vencida</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section">
+      <span class="sidebar-label">Monto mínimo (S/)</span>
+      <select id="f-monto" onchange="aplicarFiltros()">
+        <option value="0">Sin límite</option>
+        <option value="44001">Más de S/ 44,000</option>
+        <option value="485000">Más de S/ 485,000</option>
+        <option value="5000000">Más de S/ 5,000,000</option>
+      </select>
+    </div>
+
+    <button class="btn-limpiar" onclick="limpiarFiltros()">↺ Limpiar filtros</button>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- ALERTAS URGENTES -->
+    <div class="alerta-wrap" id="alertas-wrap"></div>
+
+    <!-- STATS -->
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num" id="s-total">—</div>
+        <div class="stat-lbl">Total</div>
+      </div>
+      <div class="stat s-urgente">
+        <div class="stat-num" id="s-urgente">—</div>
+        <div class="stat-lbl">Urgentes</div>
+      </div>
+      <div class="stat s-proximo">
+        <div class="stat-num" id="s-proximo">—</div>
+        <div class="stat-lbl">Próximas</div>
+      </div>
+      <div class="stat s-monto">
+        <div class="stat-num" id="s-monto">—</div>
+        <div class="stat-lbl">Monto total</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs-bar">
+      <button class="tab active" onclick="showTab('lista',this)">📋 Convocatorias</button>
+      <button class="tab" onclick="showTab('timeline',this)">📅 Línea de tiempo</button>
+      <button class="tab" onclick="showTab('graficos',this)">📊 Gráficos</button>
+    </div>
+
+    <!-- TAB: LISTA -->
+    <div id="tab-lista" class="panel active">
+      <div class="toolbar">
+        <div class="toolbar-info" id="toolbar-info">—</div>
+        <div class="view-toggle">
+          <button class="vbtn active" id="btn-tabla" onclick="setVista('tabla')">≡ Tabla</button>
+          <button class="vbtn" id="btn-cards" onclick="setVista('cards')">⊞ Cards</button>
+        </div>
+      </div>
+      <div id="contenido-lista">
+        <div class="msg-center"><div class="spinner"></div>Cargando convocatorias...</div>
+      </div>
+      <div class="pag">
+        <div id="pag-info">—</div>
+        <div class="pag-btns">
+          <button class="pag-btn" id="btn-prev" onclick="cambiarPagina(-1)" disabled>← Anterior</button>
+          <button class="pag-btn" id="btn-next" onclick="cambiarPagina(1)" disabled>Siguiente →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: TIMELINE -->
+    <div id="tab-timeline" class="panel">
+      <div class="tl-wrap" id="contenido-timeline">
+        <div class="msg-center">Carga las convocatorias primero.</div>
+      </div>
+    </div>
+
+    <!-- TAB: GRÁFICOS -->
+    <div id="tab-graficos" class="panel">
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Por objeto de contratación</h3>
+          <canvas id="chart-objeto"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Por urgencia</h3>
+          <canvas id="chart-urgencia"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Top 10 regiones</h3>
+          <canvas id="chart-region"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Monto por objeto (S/)</h3>
+          <canvas id="chart-monto"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+<!-- DRAWER FICHA -->
+<div id="drawer-overlay" class="drawer-overlay" onclick="cerrarFicha()"></div>
+<div id="drawer" class="drawer">
+  <div class="drawer-head">
+    <span class="drawer-title-bar">Ficha de convocatoria</span>
+    <button class="drawer-close" onclick="cerrarFicha()">&#10005;</button>
+  </div>
+  <div id="drawer-body" class="drawer-body"></div>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>
