@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LicitAlertas — Monitoreo automatico de convocatorias SEACE</title>
+<meta name="description" content="LicitAlertas monitorea el SEACE peruano y te alerta de convocatorias segun tu objeto, region y monto. Prueba gratis.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap');
+
+:root {
+  --azul:     #1B3A6B;
+  --azul-mid: #2557A7;
+  --azul-lt:  #EBF4FF;
+  --acento:   #F0A500;
+  --fondo:    #F4F6FA;
+  --blanco:   #FFFFFF;
+  --borde:    #E2E8F0;
+  --texto:    #1A202C;
+  --muted:    #718096;
+  --normal:   #276749;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: var(--fondo); color: var(--texto); }
+a { text-decoration: none; }
+
+/* ── HEADER ── */
+header {
+  background: var(--azul);
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky; top: 0; z-index: 100;
+}
+.logo { font-size: 19px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+.logo span { color: var(--acento); }
+.btn-header-login {
+  background: transparent; color: rgba(255,255,255,0.9);
+  border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
+  padding: 7px 16px; font-size: 13px; font-weight: 600;
+  font-family: 'Inter', sans-serif;
+}
+.btn-header-login:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* ── HERO ── */
+.hero {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 72px 24px 56px;
+  text-align: center;
+}
+.hero-badge {
+  display: inline-block;
+  background: var(--azul-lt); color: var(--azul-mid);
+  font-size: 12px; font-weight: 700;
+  padding: 6px 14px; border-radius: 20px;
+  margin-bottom: 20px; letter-spacing: 0.3px;
+}
+.hero h1 {
+  font-size: 40px; font-weight: 800; line-height: 1.2;
+  color: var(--azul); letter-spacing: -0.5px;
+  margin-bottom: 18px;
+}
+.hero h1 span { color: var(--azul-mid); }
+.hero p {
+  font-size: 17px; color: var(--muted); line-height: 1.6;
+  max-width: 620px; margin: 0 auto 32px;
+}
+.hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn-primario {
+  background: var(--azul-mid); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 14px 28px; font-size: 15px; font-weight: 700;
+  font-family: 'Inter', sans-serif; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37,87,167,0.25);
+}
+.btn-primario:hover { background: var(--azul); }
+.btn-secundario {
+  background: var(--blanco); color: var(--azul-mid);
+  border: 1px solid var(--borde); border-radius: 8px;
+  padding: 14px 28px; font-size: 15px; font-weight: 600;
+  font-family: 'Inter', sans-serif; cursor: pointer;
+}
+.btn-secundario:hover { background: var(--azul-lt); }
+.hero-nota { font-size: 12px; color: var(--muted); margin-top: 14px; }
+
+/* ── STATS BAR ── */
+.stats-bar {
+  background: var(--blanco);
+  border-top: 1px solid var(--borde);
+  border-bottom: 1px solid var(--borde);
+  padding: 28px 24px;
+}
+.stats-bar-inner {
+  max-width: 900px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 20px; text-align: center;
+}
+.stat-num {
+  font-size: 28px; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--azul);
+}
+.stat-lbl { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 600; }
+
+/* ── BENEFICIOS ── */
+.beneficios {
+  max-width: 1000px; margin: 0 auto;
+  padding: 64px 24px;
+}
+.beneficios h2 {
+  text-align: center; font-size: 28px; font-weight: 700;
+  color: var(--azul); margin-bottom: 12px;
+}
+.beneficios-sub {
+  text-align: center; font-size: 15px; color: var(--muted);
+  margin-bottom: 44px;
+}
+.beneficios-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr));
+  gap: 20px;
+}
+.beneficio-card {
+  background: var(--blanco); border: 1px solid var(--borde);
+  border-radius: 12px; padding: 24px;
+  border-top: 3px solid var(--azul-mid);
+}
+.beneficio-icono { font-size: 26px; margin-bottom: 12px; }
+.beneficio-card h3 {
+  font-size: 15px; font-weight: 700; color: var(--texto);
+  margin-bottom: 8px;
+}
+.beneficio-card p { font-size: 13px; color: var(--muted); line-height: 1.55; }
+
+/* ── COMO FUNCIONA ── */
+.como-funciona {
+  background: var(--azul-lt);
+  padding: 64px 24px;
+}
+.como-funciona-inner { max-width: 900px; margin: 0 auto; }
+.como-funciona h2 {
+  text-align: center; font-size: 28px; font-weight: 700;
+  color: var(--azul); margin-bottom: 44px;
+}
+.pasos { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+.paso { text-align: center; }
+.paso-num {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--azul-mid); color: #fff;
+  font-weight: 700; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+.paso h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.paso p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+/* ── CTA FINAL ── */
+.cta-final {
+  max-width: 700px; margin: 0 auto;
+  padding: 64px 24px; text-align: center;
+}
+.cta-final h2 {
+  font-size: 26px; font-weight: 700; color: var(--azul);
+  margin-bottom: 14px;
+}
+.cta-final p { font-size: 15px; color: var(--muted); margin-bottom: 28px; }
+
+/* ── FOOTER ── */
+footer {
+  background: var(--azul); color: rgba(255,255,255,0.6);
+  padding: 28px 24px; text-align: center; font-size: 12px;
+}
+footer a { color: rgba(255,255,255,0.8); }
+
+@media (max-width: 700px) {
+  .hero h1 { font-size: 28px; }
+  .stats-bar-inner { grid-template-columns: 1fr; gap: 16px; }
+  .pasos { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Licit<span>Alertas</span></div>
+  <a href="login.html" class="btn-header-login">Ingresar</a>
+</header>
+
+<section class="hero">
+  <div class="hero-badge">Monitoreo SEACE en tiempo real</div>
+  <h1>No pierdas otra <span>convocatoria publica</span> por no enterarte a tiempo</h1>
+  <p>LicitAlertas revisa el SEACE por ti y te muestra solo las convocatorias que calzan con tu objeto, region y monto minimo. Documentos, plazos y fichas, en un solo panel.</p>
+  <div class="hero-ctas">
+    <a href="login.html?tab=registro"><button class="btn-primario">Prueba gratis 30 dias</button></a>
+    <a href="login.html"><button class="btn-secundario">Ya tengo cuenta</button></a>
+  </div>
+  <div class="hero-nota">Sin tarjeta de credito para empezar</div>
+</section>
+
+<div class="stats-bar">
+  <div class="stats-bar-inner">
+    <div>
+      <div class="stat-num">496</div>
+      <div class="stat-lbl">Convocatorias monitoreadas</div>
+    </div>
+    <div>
+      <div class="stat-num">25</div>
+      <div class="stat-lbl">Regiones del Peru cubiertas</div>
+    </div>
+    <div>
+      <div class="stat-num">24/7</div>
+      <div class="stat-lbl">Revision automatica del SEACE</div>
+    </div>
+  </div>
+</div>
+
+<section class="beneficios">
+  <h2>Todo lo que necesitas para no perder una oportunidad</h2>
+  <div class="beneficios-sub">Configurable segun lo que realmente te interesa</div>
+  <div class="beneficios-grid">
+    <div class="beneficio-card">
+      <div class="beneficio-icono">🎯</div>
+      <h3>Filtros a tu medida</h3>
+      <p>Elige objeto (bien, servicio u obra), region y monto minimo. Solo ves lo que te sirve.</p>
+    </div>
+    <div class="beneficio-card">
+      <div class="beneficio-icono">📄</div>
+      <h3>Documentos al alcance</h3>
+      <p>Bases, terminos de referencia y anexos descargables directamente desde la ficha de cada convocatoria.</p>
+    </div>
+    <div class="beneficio-card">
+      <div class="beneficio-icono">⏱️</div>
+      <h3>Alerta de plazos</h3>
+      <p>Barra de progreso temporal y semaforo de urgencia para que sepas cuanto tiempo te queda.</p>
+    </div>
+    <div class="beneficio-card">
+      <div class="beneficio-icono">📊</div>
+      <h3>Panel claro</h3>
+      <p>Tabla o tarjetas, linea de tiempo y graficos por objeto, region y monto.</p>
+    </div>
+    <div class="beneficio-card">
+      <div class="beneficio-icono">🔒</div>
+      <h3>Tu cuenta, tu sesion</h3>
+      <p>Acceso seguro con sesion unica por usuario.</p>
+    </div>
+    <div class="beneficio-card">
+      <div class="beneficio-icono">🇵🇪</div>
+      <h3>100% datos oficiales SEACE</h3>
+      <p>Informacion tomada directamente del sistema oficial, bajo la Ley N&deg; 32069.</p>
+    </div>
+  </div>
+</section>
+
+<section class="como-funciona">
+  <div class="como-funciona-inner">
+    <h2>Como funciona</h2>
+    <div class="pasos">
+      <div class="paso">
+        <div class="paso-num">1</div>
+        <h4>Creas tu cuenta</h4>
+        <p>Registro simple con correo y contrasena.</p>
+      </div>
+      <div class="paso">
+        <div class="paso-num">2</div>
+        <h4>Configuras tu perfil</h4>
+        <p>Defines objeto, region y monto minimo de interes.</p>
+      </div>
+      <div class="paso">
+        <div class="paso-num">3</div>
+        <h4>Recibes tu panel</h4>
+        <p>Ves solo las convocatorias que te importan, siempre actualizadas.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-final">
+  <h2>Empieza a monitorear el SEACE hoy</h2>
+  <p>Prueba gratis 30 dias, sin compromiso.</p>
+  <a href="login.html?tab=registro"><button class="btn-primario">Crear mi cuenta gratis</button></a>
+</section>
+
+<footer>
+  &copy; 2026 LicitAlertas &mdash; AUDIT MED S.A.C. &middot; <a href="https://wa.me/51988600060">Contacto</a>
+</footer>
+
+</body>
+</html>
