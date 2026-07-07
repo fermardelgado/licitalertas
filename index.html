@@ -14,6 +14,10 @@
   <div class="logo">Licit<span>Alertas</span></div>
   <div class="header-right">
     <div class="header-meta" id="header-meta">Cargando...</div>
+    <div class="semaforo-wrap" id="semaforo-wrap" title="Estado del sistema">
+      <span class="semaforo-dot semaforo-ok"></span>
+      <span class="semaforo-txt">Sistema OK</span>
+    </div>
     <div class="header-user" id="header-user"></div>
     <button class="btn-salir" onclick="salir()">Salir</button>
   </div>
@@ -97,6 +101,11 @@
   <!-- MAIN -->
   <main>
 
+    <!-- TABS ABIERTAS / CONCLUIDAS -->
+    <div class="estado-tabs">
+      <button id="tab-abiertas" class="estado-tab activo" onclick="setVistaEstado('abiertas')">🟢 Abiertas</button>
+      <button id="tab-concluidas" class="estado-tab concluidas" onclick="setVistaEstado('concluidas')">📁 Concluidas</button>
+    </div>
     <!-- ALERTAS URGENTES -->
     <div class="alerta-wrap" id="alertas-wrap"></div>
 
