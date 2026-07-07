@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LicitAlertas — Suscripcion</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif; background: #F4F6FA;
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.logo { font-size: 24px; font-weight: 700; color: #1B3A6B; margin-bottom: 32px; }
+.logo span { color: #F0A500; }
+.card {
+  background: #fff; border: 1px solid #E2E8F0; border-radius: 16px;
+  padding: 40px; width: 100%; max-width: 480px; text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+}
+.icono { font-size: 48px; margin-bottom: 16px; }
+.titulo { font-size: 22px; font-weight: 700; color: #1B3A6B; margin-bottom: 10px; }
+.subtitulo { font-size: 14px; color: #718096; line-height: 1.6; margin-bottom: 28px; }
+.planes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px; }
+.plan {
+  border: 2px solid #E2E8F0; border-radius: 12px; padding: 16px;
+  cursor: pointer; transition: all 0.15s;
+}
+.plan:hover { border-color: #2557A7; }
+.plan.destacado { border-color: #2557A7; background: #EBF4FF; }
+.plan-nombre { font-size: 13px; font-weight: 700; color: #1B3A6B; margin-bottom: 4px; }
+.plan-precio { font-size: 22px; font-weight: 800; color: #2557A7; }
+.plan-precio span { font-size: 12px; font-weight: 500; color: #718096; }
+.plan-detalle { font-size: 11px; color: #718096; margin-top: 4px; }
+.btn-whatsapp {
+  width: 100%; background: #25D366; color: #fff;
+  border: none; border-radius: 10px; padding: 14px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  font-family: 'Inter', sans-serif; text-decoration: none;
+  display: block; transition: background 0.15s;
+}
+.btn-whatsapp:hover { background: #128C7E; }
+.nota { font-size: 12px; color: #A0AEC0; margin-top: 16px; }
+.btn-salir {
+  margin-top: 20px; background: transparent; border: none;
+  color: #A0AEC0; font-size: 12px; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.btn-salir:hover { color: #718096; }
+</style>
+</head>
+<body>
+
+<div class="logo">Licit<span>Alertas</span></div>
+
+<div class="card">
+  <div class="icono">&#128274;</div>
+  <div class="titulo">Tu periodo de prueba ha vencido</div>
+  <div class="subtitulo">
+    Gracias por probar LicitAlertas. Para seguir accediendo
+    a las convocatorias, documentos y alertas personalizadas,
+    activa tu suscripcion.
+  </div>
+
+  <div class="planes">
+    <div class="plan">
+      <div class="plan-nombre">&#128100; Individual</div>
+      <div class="plan-precio">S/ 99 <span>/mes</span></div>
+      <div class="plan-detalle">1 usuario</div>
+    </div>
+    <div class="plan destacado">
+      <div class="plan-nombre">&#128101; Equipo</div>
+      <div class="plan-precio">S/ 249 <span>/mes</span></div>
+      <div class="plan-detalle">Hasta 5 usuarios</div>
+    </div>
+  </div>
+
+  <a class="btn-whatsapp"
+     href="https://wa.me/51988600060?text=Hola,%20quiero%20activar%20mi%20suscripcion%20de%20LicitAlertas"
+     target="_blank">
+    &#128222; Contactar por WhatsApp
+  </a>
+  <div class="nota">Te responderemos en menos de 24 horas.</div>
+
+  <button class="btn-salir" onclick="salir()">Cerrar sesion</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://hjbmcdxbiajmbczgyhxk.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqYm1jZHhiaWFqbWJjemd5aHhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5MzA0MTksImV4cCI6MjA5ODUwNjQxOX0.8xWlQbDrYCTMvqZLXz9aIwCACrMcAsrVWYUo8_gegmI";
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function salir() {
+  await sb.auth.signOut();
+  window.location.href = "login.html";
+}
+</script>
+</body>
+</html>
