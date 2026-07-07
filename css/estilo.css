@@ -365,3 +365,11 @@ td { padding: 10px 14px; vertical-align: middle; }
 .semaforo-alerta  { background: #F6AD55; box-shadow: 0 0 6px #F6AD55; }
 .semaforo-error   { background: #FC8181; box-shadow: 0 0 6px #FC8181; }
 .semaforo-txt { font-size: 11px; color: rgba(255,255,255,0.8); font-weight: 600; }
+/* ── BTN PERFIL HEADER ── */
+.btn-perfil {
+  background: transparent; color: rgba(255,255,255,0.8);
+  border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
+  padding: 5px 12px; font-size: 12px; cursor: pointer;
+  font-family: 'Inter', sans-serif; text-decoration: none;
+}
+.btn-perfil:hover { background: rgba(255,255,255,0.1); color: #fff; }
