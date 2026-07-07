@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LicitAlertas — Mi Perfil</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: #F4F6FA; color: #1A202C; min-height: 100vh; }
+
+/* ── HEADER ── */
+header {
+  background: #1B3A6B; height: 54px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; position: sticky; top: 0; z-index: 200;
+}
+.logo { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.3px; text-decoration: none; }
+.logo span { color: #F0A500; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.btn-volver {
+  background: transparent; color: rgba(255,255,255,0.8);
+  border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
+  padding: 5px 14px; font-size: 12px; cursor: pointer;
+  font-family: 'Inter', sans-serif; text-decoration: none;
+}
+.btn-volver:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* ── LAYOUT ── */
+.container { max-width: 720px; margin: 32px auto; padding: 0 20px 60px; }
+
+/* ── SECCION ── */
+.seccion {
+  background: #fff; border: 1px solid #E2E8F0;
+  border-radius: 12px; padding: 28px 32px; margin-bottom: 20px;
+}
+.seccion-titulo {
+  font-size: 15px; font-weight: 700; color: #1B3A6B;
+  margin-bottom: 20px; padding-bottom: 12px;
+  border-bottom: 2px solid #EBF4FF;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ── FORM ── */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.form-row.full { grid-template-columns: 1fr; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label {
+  font-size: 11px; font-weight: 700; color: #4A5568;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.form-input {
+  border: 1px solid #E2E8F0; border-radius: 8px;
+  padding: 9px 14px; font-size: 14px;
+  font-family: 'Inter', sans-serif; color: #1A202C;
+  outline: none; transition: border-color 0.15s;
+  background: #F7FAFF;
+}
+.form-input:focus { border-color: #2557A7; background: #fff; }
+
+/* ── CHIPS DE PALABRAS CLAVE ── */
+.chips-wrap {
+  border: 1px solid #E2E8F0; border-radius: 8px;
+  padding: 8px 10px; min-height: 52px; background: #F7FAFF;
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  cursor: text; transition: border-color 0.15s;
+}
+.chips-wrap:focus-within { border-color: #2557A7; background: #fff; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #EBF4FF; color: #2557A7; border-radius: 20px;
+  padding: 4px 10px; font-size: 12px; font-weight: 600;
+}
+.chip-x {
+  cursor: pointer; font-size: 14px; line-height: 1;
+  color: #2557A7; opacity: 0.6;
+}
+.chip-x:hover { opacity: 1; }
+.chip-input {
+  border: none; outline: none; font-size: 13px;
+  font-family: 'Inter', sans-serif; background: transparent;
+  min-width: 140px; flex: 1;
+}
+.chips-hint { font-size: 11px; color: #A0AEC0; margin-top: 6px; }
+
+/* ── CHECKBOXES OBJETO ── */
+.obj-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+.obj-item {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid #E2E8F0; border-radius: 8px;
+  padding: 10px 18px; cursor: pointer;
+  transition: all 0.15s; font-size: 13px; font-weight: 600;
+  background: #F7FAFF;
+}
+.obj-item:hover { border-color: #2557A7; }
+.obj-item.sel-BIEN     { background: #EBF8FF; border-color: #2557A7; color: #2557A7; }
+.obj-item.sel-SERVICIO { background: #F0FFF4; border-color: #276749; color: #276749; }
+.obj-item.sel-OBRA     { background: #FFF5EB; border-color: #C05621; color: #C05621; }
+.obj-item input { display: none; }
+
+/* ── REGIONES ── */
+.regiones-grid {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 6px;
+}
+.reg-item {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; cursor: pointer; padding: 6px 8px;
+  border-radius: 6px; transition: background 0.1s;
+  border: 1px solid transparent;
+}
+.reg-item:hover { background: #EBF4FF; }
+.reg-item input { accent-color: #2557A7; }
+.reg-item.checked { background: #EBF4FF; border-color: #BEE3F8; }
+
+/* ── MONTO ── */
+.monto-opciones { display: flex; gap: 10px; flex-wrap: wrap; }
+.monto-btn {
+  border: 1px solid #E2E8F0; border-radius: 8px;
+  padding: 9px 16px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif;
+  background: #F7FAFF; color: #4A5568; transition: all 0.15s;
+}
+.monto-btn.activo {
+  background: #2557A7; color: #fff; border-color: #2557A7;
+}
+
+/* ── BTN GUARDAR ── */
+.btn-guardar {
+  width: 100%; background: #2557A7; color: #fff;
+  border: none; border-radius: 8px; padding: 13px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  font-family: 'Inter', sans-serif; transition: background 0.15s;
+  margin-top: 8px;
+}
+.btn-guardar:hover { background: #1B3A6B; }
+.btn-guardar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── MENSAJES ── */
+.msg-ok    { background: #F0FFF4; color: #276749; border: 1px solid #9AE6B4; border-radius: 8px; padding: 12px 16px; font-size: 13px; margin-top: 12px; display: none; }
+.msg-err   { background: #FFF5F5; color: #C53030; border: 1px solid #FEB2B2; border-radius: 8px; padding: 12px 16px; font-size: 13px; margin-top: 12px; display: none; }
+.msg-ok.vis, .msg-err.vis { display: block; }
+
+.spinner-inline { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="index.html">Licit<span>Alertas</span></a>
+  <div class="header-right">
+    <a class="btn-volver" href="index.html">&#8592; Volver al panel</a>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- DATOS BASICOS -->
+  <div class="seccion">
+    <div class="seccion-titulo">&#128100; Datos personales</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nombre completo</label>
+        <input type="text" id="p-nombre" class="form-input" placeholder="Fernando Delgado">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Empresa</label>
+        <input type="text" id="p-empresa" class="form-input" placeholder="Mi Empresa S.A.C.">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">RUC</label>
+        <input type="text" id="p-ruc" class="form-input" placeholder="20xxxxxxxxx" maxlength="11">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Telefono</label>
+        <input type="text" id="p-telefono" class="form-input" placeholder="+51 9xx xxx xxx">
+      </div>
+    </div>
+  </div>
+
+  <!-- PALABRAS CLAVE -->
+  <div class="seccion">
+    <div class="seccion-titulo">&#128269; Palabras clave para alertas</div>
+    <div class="chips-wrap" id="chips-wrap" onclick="document.getElementById('chip-input').focus()">
+      <input type="text" id="chip-input" class="chip-input" placeholder="Escribe una palabra y presiona Enter...">
+    </div>
+    <div class="chips-hint">Ejemplos: "laboratorio", "consultoria medica", "equipos medicos". Presiona Enter para agregar.</div>
+  </div>
+
+  <!-- OBJETO -->
+  <div class="seccion">
+    <div class="seccion-titulo">&#127981; Tipo de contratacion de interes</div>
+    <div class="obj-grid">
+      <label class="obj-item" id="obj-BIEN" onclick="toggleObj('BIEN')">
+        <input type="checkbox" value="BIEN"> Bien
+      </label>
+      <label class="obj-item" id="obj-SERVICIO" onclick="toggleObj('SERVICIO')">
+        <input type="checkbox" value="SERVICIO"> Servicio
+      </label>
+      <label class="obj-item" id="obj-OBRA" onclick="toggleObj('OBRA')">
+        <input type="checkbox" value="OBRA"> Obra
+      </label>
+    </div>
+  </div>
+
+  <!-- REGIONES -->
+  <div class="seccion">
+    <div class="seccion-titulo">&#128205; Regiones de interes</div>
+    <div class="regiones-grid" id="regiones-grid"></div>
+  </div>
+
+  <!-- MONTO MINIMO -->
+  <div class="seccion">
+    <div class="seccion-titulo">&#128176; Monto minimo de interes</div>
+    <div class="monto-opciones">
+      <button class="monto-btn activo" onclick="setMonto(0)" id="m-0">Sin limite</button>
+      <button class="monto-btn" onclick="setMonto(44001)" id="m-44001">Mas de S/ 44,000</button>
+      <button class="monto-btn" onclick="setMonto(485000)" id="m-485000">Mas de S/ 485,000</button>
+      <button class="monto-btn" onclick="setMonto(5000000)" id="m-5000000">Mas de S/ 5,000,000</button>
+    </div>
+  </div>
+
+  <!-- GUARDAR -->
+  <button class="btn-guardar" id="btn-guardar" onclick="guardar()">Guardar perfil</button>
+  <div class="msg-ok" id="msg-ok">&#10003; Perfil guardado correctamente.</div>
+  <div class="msg-err" id="msg-err">Error al guardar. Intenta nuevamente.</div>
+
+</div>
+
+<script>
+const SUPABASE_URL = "https://hjbmcdxbiajmbczgyhxk.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqYm1jZHhiaWFqbWJjemd5aHhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5MzA0MTksImV4cCI6MjA5ODUwNjQxOX0.8xWlQbDrYCTMvqZLXz9aIwCACrMcAsrVWYUo8_gegmI";
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const REGIONES = [
+  "Nacional","Lima","Arequipa","La Libertad","Cusco","Piura",
+  "Junin","Puno","Ancash","Lambayeque","Ica","Ayacucho",
+  "San Martin","Huanuco","Cajamarca","Loreto","Ucayali","Tacna",
+  "Moquegua","Tumbes","Amazonas","Madre de Dios","Pasco",
+  "Huancavelica","Apurimac","Callao"
+];
+
+const MONTOS = [0, 44001, 485000, 5000000];
+
+let usuarioId   = null;
+let objSel      = new Set();
+let regSel      = new Set();
+let montoSel    = 0;
+let palabras    = [];
+
+// ── INIT ──────────────────────────────────────────────
+async function init() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) { window.location.href = "login.html"; return; }
+
+  renderRegiones();
+
+  const email = data.session.user.email;
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/usuarios?email=eq.${encodeURIComponent(email)}&select=*`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+  );
+  const lista = await r.json();
+  if (!lista.length) return;
+
+  const u = lista[0];
+  usuarioId = u.id;
+
+  document.getElementById("p-nombre").value  = u.nombre   || "";
+  document.getElementById("p-empresa").value = u.empresa  || "";
+  document.getElementById("p-ruc").value     = u.ruc      || "";
+  document.getElementById("p-telefono").value = u.telefono || "";
+
+  montoSel = u.monto_min || 0;
+  actualizarMontoUI();
+
+  if (u.palabras_clave && u.palabras_clave.length) {
+    palabras = [...u.palabras_clave];
+    palabras.forEach(p => agregarChipUI(p));
+  }
+
+  // Cargar objetos
+  const ro = await fetch(
+    `${SUPABASE_URL}/rest/v1/usuario_objetos?usuario_id=eq.${u.id}&select=objeto`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+  );
+  const objs = await ro.json();
+  objs.forEach(o => { objSel.add(o.objeto); actualizarObjUI(o.objeto); });
+
+  // Cargar regiones
+  const rr = await fetch(
+    `${SUPABASE_URL}/rest/v1/usuario_regiones?usuario_id=eq.${u.id}&select=region`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+  );
+  const regs = await rr.json();
+  regs.forEach(r => {
+    regSel.add(r.region);
+    const el = document.getElementById(`reg-${r.region}`);
+    if (el) el.classList.add("checked");
+    const cb = document.getElementById(`cb-${r.region}`);
+    if (cb) cb.checked = true;
+  });
+}
+
+// ── REGIONES ──────────────────────────────────────────
+function renderRegiones() {
+  document.getElementById("regiones-grid").innerHTML = REGIONES.map(r => `
+    <label class="reg-item" id="reg-${r}" onclick="toggleReg('${r}')">
+      <input type="checkbox" id="cb-${r}"> ${r}
+    </label>`).join("");
+}
+
+function toggleReg(r) {
+  const el = document.getElementById(`reg-${r}`);
+  const cb = document.getElementById(`cb-${r}`);
+  if (regSel.has(r)) {
+    regSel.delete(r);
+    el.classList.remove("checked");
+    cb.checked = false;
+  } else {
+    regSel.add(r);
+    el.classList.add("checked");
+    cb.checked = true;
+  }
+}
+
+// ── OBJETO ────────────────────────────────────────────
+function toggleObj(obj) {
+  if (objSel.has(obj)) {
+    objSel.delete(obj);
+    document.getElementById(`obj-${obj}`).className = "obj-item";
+  } else {
+    objSel.add(obj);
+    actualizarObjUI(obj);
+  }
+}
+
+function actualizarObjUI(obj) {
+  document.getElementById(`obj-${obj}`).className = `obj-item sel-${obj}`;
+}
+
+// ── MONTO ─────────────────────────────────────────────
+function setMonto(v) {
+  montoSel = v;
+  actualizarMontoUI();
+}
+
+function actualizarMontoUI() {
+  MONTOS.forEach(m => {
+    const btn = document.getElementById(`m-${m}`);
+    if (btn) btn.classList.toggle("activo", m === montoSel);
+  });
+}
+
+// ── CHIPS PALABRAS CLAVE ──────────────────────────────
+function agregarChipUI(txt) {
+  const chip = document.createElement("span");
+  chip.className = "chip";
+  chip.dataset.val = txt;
+  chip.innerHTML = `${txt} <span class="chip-x" onclick="quitarChip('${txt}')">&#10005;</span>`;
+  document.getElementById("chips-wrap").insertBefore(
+    chip, document.getElementById("chip-input")
+  );
+}
+
+function quitarChip(txt) {
+  palabras = palabras.filter(p => p !== txt);
+  const chips = document.querySelectorAll(".chip");
+  chips.forEach(c => { if (c.dataset.val === txt) c.remove(); });
+}
+
+document.getElementById("chip-input").addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === ",") {
+    e.preventDefault();
+    const val = e.target.value.trim().toLowerCase();
+    if (val && !palabras.includes(val)) {
+      palabras.push(val);
+      agregarChipUI(val);
+    }
+    e.target.value = "";
+  }
+  if (e.key === "Backspace" && e.target.value === "" && palabras.length) {
+    const ultimo = palabras[palabras.length - 1];
+    quitarChip(ultimo);
+  }
+});
+
+// ── GUARDAR ───────────────────────────────────────────
+async function guardar() {
+  const btn = document.getElementById("btn-guardar");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-inline"></span>Guardando...';
+
+  document.getElementById("msg-ok").classList.remove("vis");
+  document.getElementById("msg-err").classList.remove("vis");
+
+  try {
+    const email = (await sb.auth.getSession()).data.session.user.email;
+
+    // 1. Actualizar datos en tabla usuarios
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/usuarios?email=eq.${encodeURIComponent(email)}`,
+      {
+        method: "PATCH",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          nombre:         document.getElementById("p-nombre").value.trim(),
+          empresa:        document.getElementById("p-empresa").value.trim(),
+          ruc:            document.getElementById("p-ruc").value.trim(),
+          telefono:       document.getElementById("p-telefono").value.trim(),
+          monto_min:      montoSel,
+          palabras_clave: palabras
+        })
+      }
+    );
+
+    if (!usuarioId) {
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/usuarios?email=eq.${encodeURIComponent(email)}&select=id`,
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+      );
+      const d = await r.json();
+      usuarioId = d[0]?.id;
+    }
+
+    // 2. Objetos: delete + insert
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/usuario_objetos?usuario_id=eq.${usuarioId}`,
+      { method: "DELETE", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+    );
+    if (objSel.size) {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/usuario_objetos`,
+        {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify([...objSel].map(o => ({ usuario_id: usuarioId, objeto: o })))
+        }
+      );
+    }
+
+    // 3. Regiones: delete + insert
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/usuario_regiones?usuario_id=eq.${usuarioId}`,
+      { method: "DELETE", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+    );
+    if (regSel.size) {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/usuario_regiones`,
+        {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify([...regSel].map(r => ({ usuario_id: usuarioId, region: r })))
+        }
+      );
+    }
+
+    document.getElementById("msg-ok").classList.add("vis");
+
+  } catch(e) {
+    document.getElementById("msg-err").classList.add("vis");
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = "Guardar perfil";
+}
+
+init();
+</script>
+</body>
+</html>
