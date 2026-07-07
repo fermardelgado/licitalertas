@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LicitAlertas — Ingresar</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #F4F6FA;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1B3A6B;
+  margin-bottom: 32px;
+  letter-spacing: -0.3px;
+}
+.logo span { color: #F0A500; }
+
+.card {
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 36px 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 28px;
+  border-bottom: 2px solid #E2E8F0;
+}
+.tab {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #718096;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+.tab.active { color: #2557A7; border-bottom-color: #2557A7; }
+
+.form-group { margin-bottom: 16px; }
+
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4A5568;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+input {
+  width: 100%;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  color: #1A202C;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus { border-color: #2557A7; }
+
+.btn {
+  width: 100%;
+  background: #2557A7;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  margin-top: 8px;
+  transition: background 0.15s;
+}
+.btn:hover { background: #1B3A6B; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.msg {
+  font-size: 13px;
+  text-align: center;
+  margin-top: 14px;
+  padding: 10px;
+  border-radius: 7px;
+  display: none;
+}
+.msg.error   { background: #FFF5F5; color: #C53030; display: block; }
+.msg.success { background: #F0FFF4; color: #276749; display: block; }
+.msg.warning { background: #FFFAF0; color: #B7791F; display: block; }
+
+.forgot { text-align: right; margin-top: 6px; }
+.forgot a { font-size: 12px; color: #2557A7; text-decoration: none; }
+.forgot a:hover { text-decoration: underline; }
+
+.divider { text-align: center; font-size: 12px; color: #A0AEC0; margin: 14px 0; }
+
+/* Bloqueo de sesion activa */
+.bloqueo-box {
+  background: #FFFAF0;
+  border: 1px solid #F6AD55;
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  display: none;
+}
+.bloqueo-box.visible { display: block; }
+.bloqueo-icon { font-size: 32px; margin-bottom: 10px; }
+.bloqueo-titulo { font-size: 15px; font-weight: 700; color: #B7791F; margin-bottom: 8px; }
+.bloqueo-txt { font-size: 13px; color: #744210; line-height: 1.5; margin-bottom: 14px; }
+.btn-reintentar {
+  background: #B7791F; color: #fff; border: none;
+  border-radius: 7px; padding: 9px 20px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.btn-reintentar:hover { background: #975A16; }
+</style>
+</head>
+<body>
+
+<div class="logo">Licit<span>Alertas</span></div>
+
+<div class="card">
+  <div class="tabs">
+    <div class="tab active" id="tab-login" onclick="showTab('login')">Ingresar</div>
+    <div class="tab" id="tab-registro" onclick="showTab('registro')">Crear cuenta</div>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="form-login">
+    <div class="form-group">
+      <label>Correo electronico</label>
+      <input type="email" id="login-email" placeholder="tu@correo.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Contrasena</label>
+      <input type="password" id="login-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password">
+      <div class="forgot"><a href="#" onclick="mostrarRecuperar()">&#191;Olvidaste tu contrasena?</a></div>
+    </div>
+    <button class="btn" id="btn-login" onclick="login()">Ingresar</button>
+    <div class="msg" id="msg-login"></div>
+  </div>
+
+  <!-- BLOQUEO SESION ACTIVA -->
+  <div class="bloqueo-box" id="bloqueo-box">
+    <div class="bloqueo-icon">&#128274;</div>
+    <div class="bloqueo-titulo">Sesion activa en otro dispositivo</div>
+    <div class="bloqueo-txt" id="bloqueo-txt">
+      Este usuario ya tiene una sesion activa en otro dispositivo.
+      No puedes ingresar hasta que esa sesion se cierre.
+    </div>
+    <button class="btn-reintentar" onclick="reintentar()">Reintentar</button>
+  </div>
+
+  <!-- REGISTRO -->
+  <div id="form-registro" style="display:none">
+    <div class="form-group">
+      <label>Nombre completo</label>
+      <input type="text" id="reg-nombre" placeholder="Fernando Delgado">
+    </div>
+    <div class="form-group">
+      <label>Correo electronico</label>
+      <input type="email" id="reg-email" placeholder="tu@correo.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Contrasena</label>
+      <input type="password" id="reg-password" placeholder="Minimo 6 caracteres" autocomplete="new-password">
+    </div>
+    <button class="btn" id="btn-registro" onclick="registro()">Crear cuenta</button>
+    <div class="msg" id="msg-registro"></div>
+  </div>
+
+  <!-- RECUPERAR -->
+  <div id="form-recuperar" style="display:none">
+    <div class="form-group">
+      <label>Correo electronico</label>
+      <input type="email" id="rec-email" placeholder="tu@correo.com">
+    </div>
+    <button class="btn" onclick="recuperar()">Enviar enlace</button>
+    <div class="msg" id="msg-recuperar"></div>
+    <div class="divider" style="margin-top:14px">
+      <a href="#" onclick="showTab('login')" style="color:#2557A7;font-size:13px;text-decoration:none">&#8592; Volver al login</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://hjbmcdxbiajmbczgyhxk.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqYm1jZHhiaWFqbWJjemd5aHhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5MzA0MTksImV4cCI6MjA5ODUwNjQxOX0.8xWlQbDrYCTMvqZLXz9aIwCACrMcAsrVWYUo8_gegmI";
+const TIMEOUT_MIN = 30;
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+sb.auth.getSession().then(({ data }) => {
+  if (data.session) window.location.href = "index.html";
+});
+
+function showTab(tab) {
+  document.getElementById("form-login").style.display     = tab === "login"     ? "block" : "none";
+  document.getElementById("form-registro").style.display  = tab === "registro"  ? "block" : "none";
+  document.getElementById("form-recuperar").style.display = tab === "recuperar" ? "block" : "none";
+  document.getElementById("bloqueo-box").classList.remove("visible");
+  document.getElementById("tab-login").classList.toggle("active",    tab === "login");
+  document.getElementById("tab-registro").classList.toggle("active", tab === "registro");
+}
+
+function mostrarRecuperar() {
+  document.getElementById("form-login").style.display     = "none";
+  document.getElementById("form-recuperar").style.display = "block";
+  document.getElementById("tab-login").classList.remove("active");
+  document.getElementById("tab-registro").classList.remove("active");
+}
+
+function msg(id, texto, tipo) {
+  const el = document.getElementById(id);
+  el.textContent = texto;
+  el.className = "msg " + tipo;
+}
+
+function mostrarBloqueo(email) {
+  document.getElementById("form-login").style.display = "none";
+  const box = document.getElementById("bloqueo-box");
+  box.classList.add("visible");
+  document.getElementById("bloqueo-txt").innerHTML =
+    `El usuario <strong>${email}</strong> ya tiene una sesion activa en otro dispositivo.<br><br>
+     No puedes ingresar hasta que esa sesion se cierre o expire automaticamente.`;
+}
+
+function reintentar() {
+  document.getElementById("bloqueo-box").classList.remove("visible");
+  document.getElementById("form-login").style.display = "block";
+}
+
+async function verificarSesionActiva(email) {
+  const limite = new Date(Date.now() - TIMEOUT_MIN * 60 * 1000).toISOString();
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/sesiones_activas?usuario_email=eq.${encodeURIComponent(email)}&ultimo_ping=gte.${limite}&select=id,ultimo_ping`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+  );
+  const data = await r.json();
+  return data.length > 0;
+}
+
+async function registrarSesion(email, token) {
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/sesiones_activas`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates"
+      },
+      body: JSON.stringify({
+        usuario_email: email,
+        session_token: token,
+        ultimo_ping: new Date().toISOString()
+      })
+    }
+  );
+}
+
+async function login() {
+  const email    = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  if (!email || !password) return msg("msg-login", "Completa todos los campos.", "error");
+
+  const btn = document.getElementById("btn-login");
+  btn.disabled = true;
+  btn.textContent = "Verificando...";
+
+  try {
+    const activa = await verificarSesionActiva(email);
+    if (activa) {
+      btn.disabled = false;
+      btn.textContent = "Ingresar";
+      mostrarBloqueo(email);
+      return;
+    }
+
+    btn.textContent = "Ingresando...";
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      msg("msg-login", "Correo o contrasena incorrectos.", "error");
+      btn.disabled = false;
+      btn.textContent = "Ingresar";
+      return;
+    }
+
+    await registrarSesion(email, data.session.access_token);
+    window.location.href = "index.html";
+
+  } catch(e) {
+    msg("msg-login", "Error de conexion. Intenta nuevamente.", "error");
+    btn.disabled = false;
+    btn.textContent = "Ingresar";
+  }
+}
+
+async function registro() {
+  const nombre   = document.getElementById("reg-nombre").value.trim();
+  const email    = document.getElementById("reg-email").value.trim();
+  const password = document.getElementById("reg-password").value;
+
+  if (!nombre || !email || !password) return msg("msg-registro", "Completa todos los campos.", "error");
+  if (password.length < 6) return msg("msg-registro", "La contrasena debe tener al menos 6 caracteres.", "error");
+
+  const btn = document.getElementById("btn-registro");
+  btn.disabled = true;
+  btn.textContent = "Creando cuenta...";
+
+  const { data, error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { nombre } }
+  });
+
+  if (error) {
+    msg("msg-registro", error.message, "error");
+    btn.disabled = false;
+    btn.textContent = "Crear cuenta";
+    return;
+  }
+
+  if (data.user) {
+    const hoy = new Date();
+    const expiracion = new Date(hoy);
+    expiracion.setDate(hoy.getDate() + 30);
+    const fechaExp = expiracion.toISOString().slice(0, 10);
+
+    await sb.from("usuarios").upsert({
+      id: data.user.id,
+      nombre,
+      email,
+      activo: true,
+      plan_activo: true,
+      fecha_expiracion: fechaExp
+    }, { onConflict: "email" });
+  }
+
+  msg("msg-registro", "&#161;Cuenta creada! Revisa tu correo para confirmar.", "success");
+  btn.disabled = false;
+  btn.textContent = "Crear cuenta";
+}
+
+async function recuperar() {
+  const email = document.getElementById("rec-email").value.trim();
+  if (!email) return msg("msg-recuperar", "Ingresa tu correo.", "error");
+
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: "https://licitalertas.synctralabs.com/index.html"
+  });
+
+  if (error) {
+    msg("msg-recuperar", "Error al enviar el enlace.", "error");
+  } else {
+    msg("msg-recuperar", "Enlace enviado. Revisa tu correo.", "success");
+  }
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  const loginVisible = document.getElementById("form-login").style.display !== "none";
+  const regVisible   = document.getElementById("form-registro").style.display !== "none";
+  if (loginVisible) login();
+  if (regVisible)   registro();
+});
+</script>
+</body>
+</html>
